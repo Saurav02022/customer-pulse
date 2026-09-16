@@ -89,7 +89,7 @@ Example:
 ### Not in the list
 
 Summary, open items, suggested action, "Based on" sources, contacts, note previews, record
-created date, interaction counts, relative times ("3 weeks ago"), overdue or age styling,
+created date, total interaction counts, relative times ("3 weeks ago"), overdue or age styling,
 avatars, badges, confidence or health scores, and any action buttons. The row answers "who and
 why"; suggestions are read in the detail, next to their evidence.
 
