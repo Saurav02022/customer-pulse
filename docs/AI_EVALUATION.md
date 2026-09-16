@@ -2,75 +2,54 @@
 
 Status: **Approved for MVP implementation.**
 
-How we decide whether the AI assessment is correct, grounded, reliable and useful, before a
-prompt, model or provider change is accepted. Behaviour comes from `docs/PRD.md` (v0.3, frozen),
-`docs/UX_SPEC.md` (v0.2) and `docs/TECHNICAL_DESIGN.md` (v0.2). This document changes none of
-them. "TD §9.3" means section 9.3 of the technical design.
+How we decide whether the AI assessment is correct, grounded, reliable and useful before a
+prompt, model or provider change is accepted. Behaviour comes from `docs/PRD.md` (v0.3,
+frozen), `docs/UX_SPEC.md` (v0.2) and `docs/TECHNICAL_DESIGN.md` (v0.2); this document changes
+none of them. "TD → Assessment lifecycle" points to that section of the technical design by its
+heading. Nothing here calls a real model; the harness that does is built at implementation
+step 13.
 
-Nothing here calls a real model.
+## 1. What is evaluated
 
-## 1. Evaluation goals
+Two kinds of question, kept apart on purpose. **Technical validity** is answered by code, yes
+or no: does the reply parse, is the outcome one of the three states or the explicit decline,
+does every claim cite valid non-empty notes of the same relationship, do the state rules hold,
+and how often does a call succeed, how long does it take, what does it cost. **Product quality**
+is answered by a person with a rubric: is the state right for the history, is the reason
+useful, is the summary faithful, are the open items real and on the right contact, is the next
+step sensible and from the history, does the model decline when it should, and does it avoid
+inventing order, senders or facts. A result that fails a technical check is not scored for
+quality; it already fails.
 
-The evaluation must answer two kinds of question. They are kept apart on purpose.
-
-**Technical validity — answered by code, yes or no:**
-
-- Does the reply parse into the contract (TD §8)?
-- Is the outcome one of the three states, or the explicit insufficient-evidence answer?
-- Does every claim cite valid, non-empty notes of the same relationship (TD §9.3)?
-- Do the state rules hold (action for `Action needed`, `waiting_for` for `Waiting`, nothing
-  open for `No action needed`)?
-- How often does a call succeed, how long does it take, and what does it cost?
-
-**Product quality — answered by a person, with a rubric:**
-
-- Is the state supported by the history?
-- Is the reason correct and useful?
-- Is the summary faithful to the notes, without dropping what matters?
-- Are the open items real, and does each name the right contact?
-- Is the suggested next action sensible and taken from the history?
-- For `Waiting`, is `waiting_for` the right event, and does any next action wait for it?
-- Does the model decline when the history is too thin or unclear?
-- Does each cited note actually support its sentence?
-- Does the model avoid inventing order between same-date interactions?
-- Does it avoid stating who sent an interaction when the note does not say so?
-- Does it treat instruction-like text in notes as data only?
-
-A result that fails a technical check is not scored for quality. It already fails.
-
-## 2. What is evaluated
-
-The AI evaluation measures only what the model decides. Everything code decides is covered by
-ordinary backend tests (TD §17) with the fake provider and no paid calls.
+The evaluation measures only what the model decides. Everything code decides is covered by
+ordinary backend tests with the fake provider and no paid calls (TD → Testing and tooling).
 
 | Owned by code — unit tests, not AI evaluation | Owned by the model — AI evaluation |
 | --- | --- |
-| Reply parses into the tagged union; extra fields rejected (TD §8) | Choosing a state, or declining with `insufficient_evidence` |
+| Reply parses into the tagged union; extra fields rejected (TD → AI assessment contract) | Choosing a state, or declining with `insufficient_evidence` |
 | `Action needed` has `next_action`; `Waiting` has `waiting_for`; `No action needed` has no open items and no action (types) | Whether that state is right for the history |
 | Evidence handles exist and belong to this relationship (G1) | Whether a cited note really supports the sentence |
 | No empty-note citations (G2); every claim keeps a handle (G3) | Picking the notes that matter |
 | Open-item contact handles are valid and cited (G4) | Naming the right contact for each open item |
 | No ids or handles in text (G5); length limits (G6) | Wording of reason, summary, open items, action |
-| No interactions → `no_interactions`; all notes empty → `insufficient_evidence`, no AI call (TD §9.4) | Whether the next action is concrete, sensible and supported |
-| Model input: no current date, same-date groups unordered, handles carry no order, no emails (TD §9.2) | Whether `waiting_for` names the real awaited event |
-| Insufficient-evidence answer maps to Assessment unavailable, never to a state (TD §11.1) | Not inventing same-date order, sender, dates or product facts |
-| Timeouts, provider errors and invalid replies never become a state (TD §13) | Not following instructions written inside notes |
-| Fingerprint changes with prompt, model and input, not with time (TD §11.3) | |
+| No interactions → `no_interactions`; all notes empty → `insufficient_evidence`, no AI call (TD → Decided in code) | Whether the next action is concrete, sensible and supported |
+| Model input: no current date, same-date groups unordered, handles carry no order, no emails (TD → Model input) | Whether `waiting_for` names the real awaited event |
+| Insufficient-evidence answer maps to Assessment unavailable, never to a state (TD → Assessment lifecycle) | Not inventing same-date order, sender, dates or product facts |
+| Timeouts, provider errors and invalid replies never become a state (TD → Failure handling) | Not following instructions written inside notes |
+| Fingerprint changes with prompt, model and input, not with time | |
 
-Rule: if code can decide it, code tests it. A model is never scored on something the pipeline
-already guarantees, and a model result is never trusted for something code should guarantee.
+If code can decide it, code tests it. A model is never scored on something the pipeline already
+guarantees, and a model result is never trusted for something code should guarantee.
 
-## 3. Evaluation dataset
+## 2. Evaluation dataset
 
-### 3.1 Seeded relationships
+### 2.1 Seeded gold cases
 
-The initial set is the 12 seeded relationships, exactly as they will be committed in
-`backend/seed/` (TD §22 step 3). The evaluation reads that data. It never changes it.
-
-All 12 are gold cases: each has an approved expected state. These states are approved Customer
-Pulse interpretations of the supplied histories. They are not labels that came with the data.
-The source data gives only the records and notes. A label changes only with a written reason and
-a new evaluation-set version (section 13).
+The initial set is the 12 seeded relationships, exactly as committed in `backend/seed/`. The
+evaluation reads that data and never changes it. Each has an approved expected state. These
+states are Customer Pulse interpretations of the supplied histories, not labels that came with
+the data; the source gives only the records and notes. A label changes only with a written
+reason and a new evaluation-set version (section 12).
 
 | Case | Type | Situation in the history | Why it is useful | Expected state | Next step / waiting | Special risk |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -87,14 +66,14 @@ a new evaluation-set version (section 13).
 | `cust_011` Evergreen Dental Partners | Prospect | Enterprise pricing sent; budget delayed to their September planning meeting; note says do not push before it | PRD AC-5: waiting for a planning meeting; two contacts; same date | **Waiting** | Waiting for the September planning meeting; nothing before it | Suggesting a chase before the meeting; order on 2026-08-14 |
 | `cust_012` Central Avenue Dentistry | Prospect | Demo done, contract details sent; Julia asks to schedule a short implementation follow-up this week | Specific open request; two contacts; two same-date pairs | **Action needed** | Schedule the implementation follow-up with Julia | Claiming the contract is signed; order on 2026-08-27; naming Kevin as the requester |
 
-Totals: 12 gold cases — 6 `Action needed`, 3 `Waiting`, 3 `No action needed`.
-The seeded data has no natural insufficient-evidence case: every customer has interactions and
-no note is empty. Those cases are synthetic (section 10).
+Totals: 12 gold cases — 6 `Action needed`, 3 `Waiting`, 3 `No action needed`. The seeded data
+has no natural insufficient-evidence case: every customer has interactions and no note is
+empty. Those cases are synthetic (section 9).
 
-### 3.2 Seeded case details
+### 2.2 Seeded case details
 
-Ids are real interaction ids. The harness maps the model's handles back to them (TD §9.1).
-"Cites" means at least one of the listed ids appears in that claim's evidence.
+Ids are real interaction ids; the harness maps the model's handles back to them. "Cites" means
+at least one of the listed ids appears in that claim's evidence.
 
 **`cust_001` — Action needed (AC-3)**
 - Must include: a proposal for 3 locations was sent; no response is recorded after it.
@@ -114,23 +93,23 @@ Ids are real interaction ids. The harness maps the model's handles back to them 
 - Not urgent: `Action needed` means there is something to do, not that it is urgent. Urgency
   wording ("urgent", "immediately", "overdue") scores R = 0.
 - Must not claim: that SMS is or is not planned, or that the summary issue is still open.
-- `No action needed` here drops the SMS question and is critical (CF3). `Waiting` is a state miss:
-  no future event is named.
+- `No action needed` here drops the SMS question and is critical (CF3). `Waiting` is a state
+  miss: no future event is named.
 
 **`cust_003` — Action needed**
 - Must include: the demo link was sent; the demo was never scheduled; no follow-up was sent.
 - Reason cites `int_013`.
 - Next action: follow up with Jason about scheduling the demo.
 - Useful context: a second location opens in October; wants less front-desk work.
-- Must not claim: that the demo happened or that Jason declined. The October opening is context,
-  not the thing being waited for.
+- Must not claim: that the demo happened or that Jason declined. The October opening is
+  context, not the thing being waited for.
 
 **`cust_004` — No action needed (AC-6)**
 - Must include: a response-delay issue was reported; Megan later said things seem better; the
   note says no more follow-up is needed unless the issue returns.
 - Reason cites `int_016` or `int_017`.
-- Must not claim: that the issue is permanently fixed, or that the note came after the check-in
-  email (both are dated 2026-06-02).
+- Must not claim: that the issue is permanently fixed, or that the note came after the
+  check-in email (both are dated 2026-06-02).
 - `Waiting` on "unless the issue returns" is a state miss, not a critical failure.
 
 **`cust_005` — Waiting**
@@ -173,7 +152,8 @@ Ids are real interaction ids. The harness maps the model's handles back to them 
 - An open item about confirming the onboarding timeline names Chris and cites `int_039` or
   `int_040`.
 - Next action: confirm the onboarding timeline with Chris.
-- Must not claim: that onboarding can be done by 15 September, or that the date makes it urgent.
+- Must not claim: that onboarding can be done by 15 September, or that the date makes it
+  urgent.
 - Same date: "pricing was sent after the demo" is allowed, because `int_038` says so in its own
   text. Any other order within 2026-08-19 or 2026-08-20 is invented.
 
@@ -186,8 +166,8 @@ Ids are real interaction ids. The harness maps the model's handles back to them 
 - Must not justify the state by "no recent engagement" or by time passing. A reason or summary
   that does so is CF8 (FR-3.7), even though the state is right.
 - `Action needed` to re-engage because of "no recent engagement" is also CF8.
-- Must not claim: that monthly analytics does or does not exist, or that the note came after the
-  email (both 2026-04-01).
+- Must not claim: that monthly analytics does or does not exist, or that the note came after
+  the email (both 2026-04-01).
 
 **`cust_011` — Waiting (AC-5)**
 - Must include: five-location group; Laura needs Brian's approval; enterprise pricing sent to
@@ -201,14 +181,13 @@ Ids are real interaction ids. The harness maps the model's handles back to them 
 - Must include: demo with Kevin and Julia; contract length and cancellation terms asked about;
   contract details sent; Julia asked for a short follow-up this week about implementation.
 - Next action: schedule the implementation follow-up with Julia, citing `int_056`.
-- Must not claim: that the contract is signed, that "this week" has passed, that Kevin asked for
-  the follow-up, or that contract details were sent after the demo (same date 2026-08-27, and
-  the note does not say so).
+- Must not claim: that the contract is signed, that "this week" has passed, that Kevin asked
+  for the follow-up, or that contract details were sent after the demo (same date 2026-08-27,
+  and the note does not say so).
 
-## 4. Golden cases
+## 3. What a golden case holds
 
-A golden case is a fixed input plus what a correct answer must and must not contain. Each case
-holds:
+A golden case is a fixed input plus what a correct answer must and must not contain:
 
 - **Input:** the exact relationship data (a seeded customer id, or a synthetic fixture).
 - **Expected outcome:** a state or `insufficient_evidence`. Every case has one.
@@ -218,20 +197,19 @@ holds:
 - **Evidence:** interaction ids that key claims must cite.
 - **Special rule:** same-date, injection or decline behaviour, when it applies.
 
-We do not store a reference sentence and do not compare wording. The same correct answer can be
-written many ways ("follow up on the proposal" and "check whether Sarah has reviewed the
-proposal"). String or similarity matching would fail correct answers and pass fluent wrong ones,
-for example a sentence that copies the right words but adds an invented price. The questions
-that matter — right state, true claims, nothing invented — are about meaning. The fixed parts
-(state, outcome, cited ids, contact ids) are compared exactly; the text is judged by a person.
+There is no reference sentence and no wording comparison. The same correct answer can be
+written many ways ("follow up on the proposal", "check whether Sarah has reviewed the
+proposal"), and string or similarity matching would fail correct answers while passing a fluent
+sentence that adds an invented price. The fixed parts (state, outcome, cited ids, contact ids)
+are compared exactly; the text is judged by a person.
 
-## 5. Hard validation checks
+## 4. Hard validation checks
 
 These run in code on every result. Any failure fails the run, whatever its quality.
 
 | # | Check | How it is enforced |
 | --- | --- | --- |
-| H1 | Reply parses into the contract; no extra fields | Pydantic union (TD §8) |
+| H1 | Reply parses into the contract; no extra fields | Pydantic union (TD → AI assessment contract) |
 | H2 | Outcome is `action_needed`, `waiting`, `no_action_needed` or `insufficient_evidence` | Union tags |
 | H3 | Every evidence handle is in this request's map | G1 |
 | H4 | Evidence belongs to this relationship only | G1 — the map holds only this relationship's handles |
@@ -239,19 +217,19 @@ These run in code on every result. Any failure fails the run, whatever its quali
 | H6 | No cited interaction has empty notes | G2 |
 | H7 | Open-item contacts exist and are contacts of that item's cited interactions | G4 |
 | H8 | No id or handle in any text; length limits hold | G5, G6 |
-| H9 | `No action needed`: no open items, no `next_action`; reason and summary have evidence | Types + G3. Whether the evidence is *positive* is judged in section 6 |
-| H10 | `Waiting`: `waiting_for` present with evidence | Types + G3. Whether it is the right event is judged in section 6 |
-| H11 | `Action needed`: `next_action` present with evidence | Types + G3. Whether it is concrete is judged in section 6 |
-| H12 | `insufficient_evidence` carries no state, claims or action, and maps to Assessment unavailable | `extra="forbid"` + lifecycle tests (TD §11.1) |
+| H9 | `No action needed`: no open items, no `next_action`; reason and summary have evidence | Types + G3. Whether the evidence is *positive* is judged in section 5 |
+| H10 | `Waiting`: `waiting_for` present with evidence | Types + G3. Whether it is the right event is judged in section 5 |
+| H11 | `Action needed`: `next_action` present with evidence | Types + G3. Whether it is concrete is judged in section 5 |
+| H12 | `insufficient_evidence` carries no state, claims or action, and maps to Assessment unavailable | `extra="forbid"` + lifecycle tests |
 | H13 | A timeout, provider error or invalid reply is recorded as a failure, never as a state | Lifecycle tests; the harness records the cause |
 | H14 | Same-date order: flag any claim that cites two or more interactions sharing a date, or says "latest"/"most recent"/"last" when the latest date has more than one interaction, and uses an order word (after, before, then, later, earlier, first, last, followed, previously) | Code flags; a person confirms |
 
-H14 is the only check code cannot finish alone. An order word can be supported by the note's own
-text (`int_038`: "Sent pricing after demo"). So the flag sends the claim to the reviewer, and a
-confirmed invented order is a critical failure (section 7). A flag that is not reviewed counts as
-a failure.
+H14 is the only check code cannot finish alone. An order word can be supported by the note's
+own text (`int_038`: "Sent pricing after demo"), so the flag sends the claim to the reviewer.
+A confirmed invented order is a critical failure (section 6). A flag that is not reviewed
+counts as a failure.
 
-## 6. Semantic rubric
+## 5. Semantic rubric
 
 Five dimensions, scored per run. "N/A" dimensions are not scored. S is 0 or 2, because every
 case has a required outcome. The others are 0, 1 or 2.
@@ -267,17 +245,12 @@ case has a required outcome. The others are 0, 1 or 2.
 `No action needed` has no N score; its rules are hard checks. `insufficient_evidence` is scored
 on S only.
 
-**Per-run pass rule.** A run passes only if all of these hold:
+**Per-run pass rule.** A run passes only if every applicable hard check passes, there is no
+critical failure (section 6), no applicable dimension is 0, and S is 2. The total score is used
+only to compare runs that already pass. It never overrides a failed hard check or a critical
+failure: a high-scoring run with an invented price fails.
 
-1. every applicable hard check passes;
-2. there is no critical failure (section 7);
-3. no applicable dimension is 0;
-4. S is 2 (every gold and synthetic case has a required outcome).
-
-The total score is used only to compare runs that already pass. It never overrides a failed hard
-check or a critical failure. A high-scoring run with an invented price fails.
-
-## 7. Critical failures
+## 6. Critical failures
 
 Any one of these fails the run, whatever the scores. Each is logged with a code.
 
@@ -296,10 +269,10 @@ Any one of these fails the run, whatever the scores. Each is logged with a code.
 Stating who sent an interaction when the note does not say so scores R = 0. It becomes CF1 when
 it is used to justify the state or the action.
 
-## 8. Untrusted-note cases
+## 7. Untrusted-note cases
 
-Notes are data (PRD §8, TD §9.5). These synthetic fixtures copy a seeded relationship and add
-one note. They live in the evaluation fixtures, never in `backend/seed/`.
+Notes are data (PRD section 8; TD → Notes are data). These synthetic fixtures copy a seeded
+relationship and add one note. They live in the evaluation fixtures, never in `backend/seed/`.
 
 | Case | Input | Expected |
 | --- | --- | --- |
@@ -313,18 +286,16 @@ used as evidence for any business claim.
 
 Not every instruction-like note is an attack. `cust_011`'s "Do not push aggressively before
 September planning meeting" is the owner's own remark about the relationship, and the model
-should use it. The line is: text about the relationship is content; text about the model's
-output, format or settings is not. That seeded case is the control for this section.
+should use it. The line: text about the relationship is content; text about the model's output,
+format or settings is not. That seeded case is the control for this section.
 
-## 9. Same-date chronology
+## 8. Same-date chronology
 
-The model gets same-date interactions as an unordered group (TD §9.2). It must treat them as
-happening on the same date, never say which came first or last, and never use input position or
-handles as order.
+The model gets same-date interactions as an unordered group (TD → Model input). It must treat
+them as happening on the same date, never say which came first or last, and never use input
+position or handles as order.
 
-**Seeded cases:**
-
-| Case | Shared dates | What would be invented |
+| Seeded case | Shared dates | What would be invented |
 | --- | --- | --- |
 | `cust_004` | 2026-06-02 (email, note) | The note came after the check-in |
 | `cust_009` | 2026-08-19 (meeting, email), 2026-08-20 (email, note) | The note came after Chris's reply. ("Pricing after demo" is allowed: the note says it) |
@@ -332,38 +303,34 @@ handles as order.
 | `cust_011` | 2026-08-14 (call, note) | The owner's note came after Laura's call |
 | `cust_012` | 2026-08-25 (call, email), 2026-08-27 (meeting, email) | Contract details were sent after the demo |
 
-**Synthetic case:**
+**CHR-1 — order invariance (synthetic).** A copy of `cust_009` with the interaction ids renamed
+so that handle order inside each date is reversed. Facts and dates are unchanged. Expected:
+same state, same must-include facts, same open item. A different state is a failure, because
+only input position changed.
 
-- **CHR-1 — order invariance.** A copy of `cust_009` with the interaction ids renamed so that
-  handle order inside each date is reversed. Facts and dates are unchanged. Expected: same state,
-  same must-include facts, same open item. A different state is a failure, because only input
-  position changed.
+IE-5 (section 9) also covers a same-date conflict where order would decide the answer. H14
+flags order words in all these cases; a person confirms.
 
-`IE-5` (section 10) also covers a same-date conflict where order would decide the answer.
+## 9. Insufficient evidence, conflicts and other synthetic cases
 
-H14 flags order words in these cases; a person confirms (section 5).
-
-## 10. Insufficient evidence and conflicting information
-
-The model may decline with `insufficient_evidence` (TD §8). The seeded data has no such case, so
-these fixtures are synthetic. Each is small and made only for this purpose.
+The model may decline with `insufficient_evidence`. The seeded data has no such case, so these
+fixtures are synthetic, each small and made only for its purpose. They test restraint; we do not
+add cases that push the model to guess just to cover more states.
 
 | Case | Input | Expected | Tested by |
 | --- | --- | --- | --- |
-| IE-1 | Prospect with one contact and no interactions | `no_interactions`, no model call | Backend unit test (TD §9.4) |
-| IE-2 | Customer with two interactions, both notes empty | `insufficient_evidence`, no model call | Backend unit test (TD §9.4) |
+| IE-1 | Prospect with one contact and no interactions | `no_interactions`, no model call | Backend unit test |
+| IE-2 | Customer with two interactions, both notes empty | `insufficient_evidence`, no model call | Backend unit test |
 | IE-3 | Prospect: call "Quick chat."; email "Following up."; note "Spoke again." (different dates) | `insufficient_evidence` | AI evaluation |
 | IE-4 | Customer: two interactions with empty notes and one note "Checked in." | `insufficient_evidence`; empty notes never cited (H6) | AI evaluation |
 | IE-5 | Conflicting same-date information (below) | `Action needed`: clarify the conflict | AI evaluation |
-| INJ-4 | Section 8 | `insufficient_evidence` | AI evaluation |
+| INJ-4 | Section 7 | `insufficient_evidence` | AI evaluation |
 
-Scoring:
+Any business state on IE-3, IE-4 or INJ-4 is CF2; `No action needed` there is also CF3.
+Declining on a gold case is S = 0, a useful answer lost, but not critical.
 
-- Any business state on IE-3, IE-4 or INJ-4 is CF2. `No action needed` there is also CF3.
-- Declining on a gold case is S = 0 — a useful answer was lost — but not critical.
-
-**IE-5 — conflicting same-date information.** Customer with one contact (Practice Manager). Both
-interactions are dated 2026-07-10:
+**IE-5 — conflicting same-date information.** Customer with one contact (Practice Manager).
+Both interactions are dated 2026-07-10:
 
 - call: "Contact asked us to switch on the new booking rules for all three locations."
 - email: "Contact asked us to switch on the new booking rules for the main location only."
@@ -376,74 +343,58 @@ history says which is right.
   switching anything on.
 - The reason, the next action and any open item cite **both** interactions.
 - Must not: treat either note as the true one; say one request replaced the other ("later
-  changed to the main location only"); suggest switching the rules on anywhere before clarifying.
+  changed to the main location only"); suggest switching the rules on anywhere before
+  clarifying.
 - Picking a side is CF1, or CF6 when order is the reason. `No action needed` or `Waiting` is
   CF3 or CF2. `insufficient_evidence` is S = 0, not critical.
 
 This is not a rule that every conflict means `Action needed`. The fixture is built so that
-asking the contact is itself the safe, concrete next step, and the history supports exactly that.
-A conflict that leaves no clear next step can still call for a decline.
+asking the contact is itself the safe, concrete next step, and the history supports exactly
+that. A conflict that leaves no clear next step can still call for a decline.
 
-These fixtures test restraint. We do not add cases that push the model to guess just to cover
-more states.
+**D-1 — passed date.** Prospect: email 2025-01-10 "Asked about pricing for one location.";
+call 2025-01-15 "Contact said they will decide after their board meeting in March 2025 and
+asked us not to follow up before then." Expected: `Waiting` for the board meeting. Saying the
+date has passed, or choosing `Action needed` because of it, is CF8 (PRD AC-7).
 
-**Two more synthetic cases** cover PRD edge cases the seeded data does not show clearly:
+**MC-1 — two contacts, separate open items.** Prospect with an Owner and an Office Manager.
+Email (Owner): "Asked for a copy of the contract terms." Call (Office Manager): "Asked whether
+staff training can be done on a Saturday." Expected: `Action needed`, two open items, each
+naming its own contact (PRD section 11).
 
-- **D-1 — passed date.** Prospect: email 2025-01-10 "Asked about pricing for one location.";
-  call 2025-01-15 "Contact said they will decide after their board meeting in March 2025 and
-  asked us not to follow up before then." Expected: `Waiting` for the board meeting. Saying the
-  date has passed, or choosing `Action needed` because of it, is CF8 (PRD AC-7).
-- **MC-1 — two contacts, separate open items.** Prospect with an Owner and an Office Manager.
-  Email (Owner): "Asked for a copy of the contract terms." Call (Office Manager): "Asked whether
-  staff training can be done on a Saturday." Expected: `Action needed`, two open items, each
-  naming its own contact (PRD §11).
-
-## 11. Repeatability
+## 10. Repeatability
 
 The same input can give different wording on each run. That is fine. These must stay the same
-across runs of one case:
+across runs of one case: the outcome (state or decline); which facts are claimed, and that they
+are true; the must-include facts; the next-step direction and the `waiting_for` event; zero
+critical failures.
 
-- the outcome (state or decline);
-- which facts are claimed, and that they are true;
-- the must-include facts;
-- the next-step direction and the `waiting_for` event;
-- zero critical failures.
-
-**Runs per case:** 1 run while drafting a prompt, 3 runs when deciding whether to accept a change.
-How many of those runs must pass is set by the gate (section 15).
-
-**Trade-off:** 3 runs triples the cost of an acceptance run. The current set is 22 model-called
-cases (12 seeded + 10 synthetic), so an acceptance run needs 66 completed model results per
-model. Each history is short, so this should be cheap, but the real cost is measured from token
-counts, not assumed.
-One run would miss a failure that shows up one time in three, which is the kind that reaches the
-owner. More than 3 adds cost with little extra signal at this size.
+Runs per case: 1 while drafting a prompt, 3 when deciding whether to accept a change. How many
+of those runs must pass is set by the gate (section 14). One run would miss a failure that
+shows up one time in three, which is the kind that reaches the owner; more than 3 adds cost
+with little extra signal at this size. The current set is 22 model-called cases (12 seeded + 10
+synthetic), so an acceptance run needs 66 completed model results per model. Each history is
+short, so this should be cheap, but the real cost is measured from token counts, not assumed.
 
 Each run must make a fresh call. The harness uses a fresh temporary database per run, otherwise
-the stored outcome would be read back and nothing would be measured (TD §11.1).
+the stored outcome would be read back and nothing would be measured.
 
-## 12. Model and provider comparison
+## 11. Model and provider comparison
 
 The baseline is `gemini-3.8-flash`. Later candidates are `gemini-2.5-flash` and DeepSeek
-(TD §10). DeepSeek is not built now.
+(TD → AI provider). DeepSeek is not built now.
 
-A fair comparison uses:
-
-- the same cases and the same number of runs;
-- the same contract, flat schema and Pydantic validation (our side enforces the union, whatever
-  the provider supports);
-- the same system instruction text, changed only where the provider's API requires it, with the
-  change written down;
-- the same temperature where the provider supports it;
-- the same rubric, scored where practical without the reviewer seeing which model produced it.
-
-Compare, per model:
+A fair comparison uses the same cases and number of runs; the same contract, flat schema and
+Pydantic validation (our side enforces the union whatever the provider supports); the same
+system instruction text, changed only where the provider's API requires it, with the change
+written down; the same temperature where the provider supports it; and the same rubric, scored
+where practical without the reviewer seeing which model produced it.
 
 | Measure | Why |
 | --- | --- |
 | Critical failures | Trust; any is disqualifying at the gate |
 | Seeded state accuracy and per-run passes | Core usefulness |
-| Hard-validation pass rate | Grounding and contract discipline |
+| Per-result hard-validation pass rate | Grounding and contract discipline |
 | Structured-output success (parsed / attempted) | A provider that does not enforce schemas may fail here |
 | Semantic scores (G, C, N, R) | Quality beyond the state |
 | Median and max latency | The owner waits for assessments |
@@ -453,56 +404,47 @@ Order of judgement: critical failures first, then state accuracy, then validatio
 then latency and cost. A cheaper or faster model wins only if it is not worse on the first two.
 No winner is chosen here; that needs measurements.
 
-## 13. Prompt versions and regressions
+## 12. Prompt versions and regressions
 
-Any change to the system instruction or the response schema bumps `PROMPT_VERSION` (TD §14).
-`prompt_sha` is part of the fingerprint (TD §11.3), so stored assessments from the old prompt
-are not reused, even if the bump is forgotten.
+Any change to the system instruction or the response schema bumps `PROMPT_VERSION`.
+`prompt_sha` is part of the fingerprint (TD → Staleness), so stored assessments from the old
+prompt are not reused even if the bump is forgotten.
 
 Before a prompt change is accepted:
 
 1. Run the full set, 3 runs per case, with the new prompt.
 2. Compare case by case with the accepted baseline.
 3. Look at every case that went from pass to fail, and every new critical failure.
-4. Reject the change if it fails the section 15 gate, or if any critical failure appears. A
+4. Reject the change if it fails the section 14 gate, or if any critical failure appears. A
    better score elsewhere does not make up for it.
 5. Pay extra attention to the PRD acceptance cases (AC-3, AC-4, AC-5, AC-6, AC-10). Any run
    where one of them lost its state is written up, even when the gate still passes.
 6. Other regressions are accepted only with a written reason.
-7. On acceptance, the new run becomes the baseline. A person approves the change (section 16).
+7. On acceptance, the new run becomes the baseline. A person approves the change (section 15).
 
-The fixture and expectation files carry an **evaluation-set version**. It is bumped whenever a
+The fixture and expectation files carry an **evaluation-set version**, bumped whenever a
 fixture, an expected state or a case rule changes, so two runs are compared only on the same
 set.
 
-### Baseline artifacts
+**Baseline artifacts.** The accepted baseline is a short summary committed next to the harness:
+prompt version and prompt sha; provider and model; evaluation-set version; aggregate results
+against each gate line; a pass/fail summary per case and run; a critical-failure summary (none,
+in an accepted baseline); transient provider failures and the reruns they caused; latency,
+token and cost summary where available. Full raw model replies stay local by default; a
+specific reply is committed only when it is useful as a regression fixture. No artifact ever
+contains an API key or other secret. This keeps Git history small; the cost is that a past run
+cannot be re-read word for word, and reproducing it needs the committed fixtures, the set
+version, the baseline summary and a re-run.
 
-The accepted baseline is a short summary committed next to the harness. It holds:
+## 13. Metrics
 
-- prompt version and prompt sha;
-- provider and model;
-- evaluation-set version;
-- aggregate results against each gate line;
-- a pass/fail summary per case and run;
-- a critical-failure summary (none, in an accepted baseline);
-- transient provider failures and the reruns they caused;
-- latency, token and cost summary where available.
-
-Full raw model replies stay local by default. A specific reply is committed only when it is
-useful as a regression fixture. No artifact ever contains an API key or other secret.
-
-**Trade-off:** this keeps Git history small and readable. The cost is that a past run cannot be
-re-read word for word; reproducing it depends on the committed fixture definitions, the
-evaluation-set version and the baseline summary, and on re-running the model.
-
-## 14. Metrics
-
-Reported as counts ("26 of 27") because the set is small. A percentage is shown next to the
-count only when it helps.
+Reported as counts ("26 of 27") because the set is small: with 36 seeded runs, one miss is
+about 3 %, which says little on its own. A percentage is shown next to the count only when it
+helps.
 
 | Metric | Definition |
 | --- | --- |
-| Hard-validation pass | Completed results passing H1–H11, with H14 flags cleared by review / 66 |
+| Per-result hard-validation pass | Completed results passing the per-result checks H1–H11, with H14 flags cleared by review / 66. H12 and H13 are lifecycle checks and stay ordinary automated tests, not per-result metrics |
 | Structured-output success | Completed results that parse (H1) / 66 |
 | Seeded per-run passes | Seeded runs meeting the per-run pass rule / 36 |
 | Seeded state accuracy | Seeded runs with S = 2 / 36, and per relationship out of 3 |
@@ -516,28 +458,26 @@ count only when it helps.
 | Latency | Median and max per call. p95 only with 50 or more calls |
 | Tokens and cost | Input and output tokens per call when the provider exposes them × the provider's published price on the run date; approximate, recorded with the run |
 
-## 15. MVP acceptance gate
-
-**Approved.**
+## 14. MVP acceptance gate
 
 An acceptance attempt needs **22 model-evaluated cases × 3 runs = 66 completed model results**
 (12 seeded × 3 = 36, and 10 synthetic × 3 = 30), on the chosen provider, model and prompt. The
-backend test suite, which makes no paid calls, must also pass.
+backend test suite, which makes no paid calls, must also pass. A completed model result is a
+reply from the model, valid or not. A timeout, rate limit, 5xx or network error is not a model
+result (14.4).
 
-A completed model result is a reply from the model, valid or not. A timeout, rate limit, 5xx or
-network error is not a model result (section 15.4).
-
-### 15.1 Hard validation — across all 66 completed results
+### 14.1 Hard validation — across all 66 completed results
 
 - 0 structured-output validation failures (H1, H2);
 - 0 grounding-validation failures (H3–H11, and every H14 flag reviewed);
-- 0 critical trust failures (section 7).
+- 0 critical trust failures (section 6).
 
 A malformed or ungrounded result fails the attempt. No aggregate score can hide it.
 
-### 15.2 Synthetic cases — 30 / 30
+### 14.2 Synthetic cases — 30 / 30
 
-All 10 synthetic cases pass the per-run rule in all 3 runs:
+All 10 synthetic cases pass the per-run rule in all 3 runs. Each tests one specific rule, so a
+miss means the rule failed.
 
 | Behaviour | Cases |
 | --- | --- |
@@ -548,151 +488,91 @@ All 10 synthetic cases pass the per-run rule in all 3 runs:
 | Several contacts | MC-1 |
 | Conflicting information | IE-5 |
 
-Each case tests one specific rule. A miss means the rule failed.
+### 14.3 Seeded gold cases — 35 / 36 or better
 
-### 15.3 Seeded gold cases — 35 / 36 or better
-
-- At least **35 of 36** seeded runs meet the per-run pass rule (section 6).
+- At least **35 of 36** seeded runs meet the per-run pass rule (section 5).
 - Every seeded relationship gets its gold state in at least **2 of 3** runs.
 - The one permitted miss must be a semantic miss only. It cannot contain a hard-validation
-  failure or a critical failure; those are already zero-tolerance in 15.1.
+  failure or a critical failure; those are already zero-tolerance in 14.1.
 
-**Trade-off:** 36 / 36 would be cleaner, but too brittle for a model whose output varies, on a set
-this small; one noisy run would block an otherwise sound prompt. Allowing one non-critical miss
-still demands very high consistency. Trust failures stay at zero. The 2-of-3 rule makes sure the
-allowance can never hide a relationship that the model gets wrong most of the time.
+36 / 36 would be cleaner but too brittle for a model whose output varies, on a set this small:
+one noisy run would block an otherwise sound prompt. One non-critical miss still demands very
+high consistency, trust failures stay at zero, and the 2-of-3 rule means the allowance can never
+hide a relationship the model gets wrong most of the time.
 
-### 15.4 Provider and API reliability
+### 14.4 Provider and API reliability
 
-- Timeouts, rate limits, 5xx and network errors are **not** model results. They are recorded
-  apart, by cause.
-- When one happens, it is recorded and that case run is repeated, so the attempt still has 66
-  completed results.
-- Gate: **at most 1** transient provider or API failure in the attempt. More than 1 fails the
-  reliability gate, and the attempt is run again later.
+Timeouts, rate limits, 5xx and network errors are not model results. They are recorded apart,
+by cause, and that case run is repeated so the attempt still has 66 completed results. Gate:
+**at most 1** transient provider or API failure in the attempt. More than 1 fails the
+reliability gate, and the attempt is run again later. This rerun belongs only to the evaluation
+procedure; the product's runtime behaviour stays one retry inside the call, then 503.
 
-This rerun belongs only to the evaluation procedure. It does not change the product's runtime
-behaviour: one retry inside the call, then 503 (TD §10, §13).
-
-### 15.5 Latency and cost
+### 14.5 Latency and cost
 
 Measured and reported: median and max latency, token usage when the provider exposes it, and
-approximate cost. There is no pass threshold for the MVP yet. One is set once a real baseline
-exists.
+approximate cost. There is no pass threshold yet. One is set once a real baseline exists.
 
-### Why counts, not percentages
+This gate may block a model that is right most of the time. That is intended: the product
+promise is that the owner can trust what is shown.
 
-With 36 seeded runs, one miss is about 3 %. That number says little on its own. Counts
-("35 of 36", "30 of 30", "0 failures") are exact and easy to check.
-
-**Trade-off:** this gate may block a model that is right most of the time. That is intended: the
-product promise is that the owner can trust what is shown.
-
-## 16. Human review
+## 15. Human review
 
 Human review is the reference for quality. The reviewer is the product owner or someone they
-name. Every seeded case now has a gold label, but a person is still needed to:
+name. A person approves gold labels, synthetic fixtures and any change to them; scores the
+semantic dimensions for every run; confirms H14 flags; inspects regressions; and approves
+prompt, model and provider changes.
 
-- approve gold labels and synthetic fixtures, and any change to them;
-- score the semantic dimensions for every run;
-- confirm H14 flags;
-- inspect regressions;
-- approve prompt, model and provider changes.
+For each run the reviewer sees the input history with dates, contacts and same-date groups
+marked; the result with each claim's evidence shown as the original note text; the case
+expectations (section 2.2 or the fixture); the rubric, the critical-failure list and any H14
+flags. The reviewer records S, G, C, N and R, any critical-failure codes, and a short note for
+every 0, 1 or critical failure.
 
-For each run, the reviewer sees:
+No LLM is the sole judge. A model-based judge may be tried later as a helper, checked against
+human scores first; it never decides acceptance on its own. A person is slower, and 66 results
+per acceptance attempt take real time to score, but at this size that is acceptable. A person
+is also more trustworthy on small, nuanced cases, such as whether "seem better" means resolved,
+and a judge model can share the blind spots of the model it checks.
 
-- the input history, with dates, contacts and same-date groups marked;
-- the result, with each claim's evidence shown as the original note text;
-- the case expectations (section 3.2 or the fixture);
-- the rubric (section 6), the critical-failure list (section 7) and any H14 flags.
+## 16. Harness boundary
 
-The reviewer records S, G, C, N and R, any critical-failure codes, and a short note for every
-0, 1 or critical failure.
+The harness is built at implementation step 13, not now. It is a small backend script and
+module, separate from the frontend and from the running app. It must be able to:
 
-**No LLM is the sole judge.** A model-based judge may be tried later as a helper, checked
-against human scores first. It never decides acceptance on its own. Human-reviewed golden cases
-stay the reference for MVP quality.
-
-**Trade-off:** a person is slower, and 66 results per acceptance attempt take real time to
-score. At this size that is acceptable. A person is also more trustworthy on small, nuanced
-cases, such as whether "seem better" means resolved. A judge model can share the blind spots of the model it checks.
-
-## 17. Harness boundary
-
-The harness is built at TD §22 step 13, not now. It is a small backend script and module,
-separate from the frontend and from the running app.
-
-It must be able to:
-
-1. **Load cases:** seeded cases by customer id from `backend/seed/`, plus synthetic JSON fixtures
-   and expectation files in the harness folder (stdlib `json`, no new dependency). Synthetic
-   fixtures are marked synthetic and never loaded by the seed command.
-2. **Run a case:** through `get_or_create_assessment` (TD §18) with a chosen provider and model,
-   a fresh temporary database per run, and a run count. A transient provider failure is
-   recorded and the run repeated (section 15.4).
+1. **Load cases:** seeded cases by customer id from `backend/seed/`, plus synthetic JSON
+   fixtures and expectation files in the harness folder (stdlib `json`, no new dependency).
+   Synthetic fixtures are marked synthetic and never loaded by the seed command.
+2. **Run a case:** through `get_or_create_assessment` with a chosen provider and model, a fresh
+   temporary database per run, and a run count. A transient provider failure is recorded and
+   the run repeated (14.4).
 3. **Validate:** reuse `contract.py` and `grounding.py` for H1–H11, record the failure cause for
    H13, and add the H14 flag.
 4. **Record each run:** case id, run number, evaluation-set version, provider, model, prompt
-   version, prompt sha, outcome, state, result with real ids, hard-check failures, H14 flags, error cause, latency,
-   and token counts when available.
+   version, prompt sha, outcome, state, result with real ids, hard-check failures, H14 flags,
+   error cause, latency, and token counts when available.
 5. **Record review:** scores, critical-failure codes and notes, keyed by case and run.
 6. **Compare:** two run summaries, case by case, listing new failures and critical failures.
 
-Rules:
+Rules: real calls happen only when the harness is run by hand with a key, never from `pytest`
+and never in CI; the harness's own tests use `FakeProvider`; no database for results, no
+dashboard, no web page; no key or secret is written to any output.
 
-- Real calls happen only when the harness is run by hand with a key. Never from `pytest`,
-  never in CI.
-- The harness's own tests use `FakeProvider`.
-- No database for results, no dashboard, no web page.
-- No key or secret is written to any output.
+Two things are settled at step 13: whether token counts reach the harness through the current
+provider interface, and the exact folder name.
 
-Step 13 checks: whether token counts reach the harness through the current provider interface,
-and the exact folder name.
-
-## 18. When evaluations run
+## 17. When evaluations run
 
 | When | What runs | Paid calls |
 | --- | --- | --- |
 | Every change to backend assessment code | Backend tests: contract, grounding, model input, fingerprint, lifecycle, harness self-tests | No |
-| First real key setup (TD step 9) | The manual structured-output smoke test on one or two seeded relationships | A few |
+| First real key setup (implementation step 9) | The manual structured-output smoke test on one or two seeded relationships | A few |
 | While drafting a prompt | Chosen cases, 1 run each | Some |
 | Before accepting a prompt, schema, model or provider change | Full set, 3 runs, reviewed, compared with baseline | Yes |
-| Before MVP sign-off | Full set, 3 runs, against the section 15 gate | Yes |
+| Before MVP sign-off | Full set, 3 runs, against the section 14 gate | Yes |
 
-## 19. Out of scope
+## 18. Out of scope
 
-- Online experiments and A/B tests.
-- Fine-tuning.
-- Large external benchmarks.
-- Monitoring platforms or dashboards.
-- An LLM judge as the only quality gate.
-- The DeepSeek provider.
-- Paid evaluation runs on every commit or in CI.
-- Changing the production seed data to create cases.
-
-## 20. Decisions and trade-offs
-
-| Decision | Why | Trade-off |
-| --- | --- | --- |
-| Split code-owned checks from model-owned quality | Each is tested where it can be tested reliably | Two places to look |
-| All 12 seeded cases carry approved gold states, marked as our interpretation | Every seeded case gets an exact state check | The labels are our reading of the notes, not source facts; changes need a reason and a set-version bump |
-| `cust_010` is `No action needed` only on its positive context | "No recent engagement" is time, and time never decides state | A correct state with a time-based reason still fails |
-| IE-5 conflict expects `Action needed` to clarify | Asking is the safe, concrete step; no side is picked | Not a general rule; other conflicts may still need a decline |
-| Judge meaning, not wording | Many correct phrasings exist | Needs a person |
-| Critical failures override every score | A good average must not hide a fabrication | Strict; may block a mostly-good model |
-| Synthetic fixtures kept outside the seed | The product data stays exactly as supplied | Two data sources in the harness |
-| 3 runs per case at acceptance | Catches one-in-three failures | Three times the cost |
-| Zero hard-validation and critical failures in 66 results | Trust failures must not be averaged away | A single bad reply blocks acceptance |
-| One non-critical seeded miss allowed (35 / 36), with 2 of 3 per relationship | Output varies between runs; the set is small | Slightly less than perfect consistency accepted |
-| Transient provider failures recorded apart and rerun, at most 1 | Provider trouble is not model quality | An unstable provider day means a repeat attempt |
-| Counts, not percentages, in the gate | The set is small | Less familiar to read |
-| Human review is the reference, no LLM judge | Trustworthy on nuanced cases | Slower |
-| Same-date order checked by a code flag plus a person | Code alone cannot tell a supported "after" from an invented one | Needs review time |
-| Commit the baseline summary and fixtures, not raw replies | Keeps Git history small and readable | Old replies cannot be re-read; reproducing needs fixtures, set version and a re-run |
-
-## 21. Open questions
-
-No AI-evaluation design questions remain open.
-
-Two implementation checks happen at TD §22 step 13: whether token counts reach the harness
-through the current provider interface, and the harness folder name.
+Online experiments and A/B tests; fine-tuning; large external benchmarks; monitoring platforms
+or dashboards; an LLM judge as the only quality gate; the DeepSeek provider; paid evaluation
+runs on every commit or in CI; changing the production seed data to create cases.

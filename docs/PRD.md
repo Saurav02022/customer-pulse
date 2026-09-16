@@ -1,29 +1,27 @@
 # Customer Pulse — PRD v0.3
 
-Status: **Approved / Frozen for MVP.**
-
-Every decision in this document is approved for the MVP. Changes need a new PRD version.
+Status: **Approved and frozen for the MVP.** A change to any decision here needs a new PRD
+version.
 
 ## 1. Product summary
 
 Customer Pulse helps a small-business owner stay on top of their prospects and customers. For
-each relationship it shows the basic facts and the interaction history. It also gives an
-assessment: does anything need doing now, why, and what the next step could be. The assessment
-is based only on that relationship's interaction history, and the owner can trace it back to
-that history.
+each relationship it shows the basic facts and the interaction history, plus an assessment: does
+anything need doing now, why, and what the next step could be. The assessment is based only on
+that relationship's interaction history, and the owner can trace it back to that history.
 
 A **relationship** is one customer record with its contacts and interactions.
 
 ## 2. Problem statement
 
-The details that decide what to do next are written inside emails, calls, meetings and notes. To
-find them, the owner has to reread old history. Date-based rules ("no contact in N days") miss
-these details. For example:
+The details that decide what to do next are buried in emails, calls, meetings and notes. To find
+them, the owner has to reread old history. Date rules such as "no contact in N days" miss the
+cases that matter:
 
-- a prospect may need a follow-up because a proposal or pricing got no response
-- a prospect may have a specific open item, such as confirming an onboarding timeline
-- a prospect may have asked not to be chased until a future planning meeting
-- an existing customer may have had an issue that is now resolved and needs nothing
+- a prospect needs a follow-up because a proposal or pricing got no response
+- a prospect has a specific open item, such as confirming an onboarding timeline
+- a prospect asked not to be chased until a future planning meeting
+- an existing customer had an issue that is now resolved and needs nothing
 
 Customer Pulse must keep these cases apart.
 
@@ -47,10 +45,10 @@ With as little manual work as possible, the owner wants to:
    answers.
 2. **Grounded AI.** Everything the AI says comes from the relationship's own interaction
    history, and the owner can trace it.
-3. **AI only where it is needed.** AI is used to interpret interaction notes. Showing records,
-   dates and history needs no AI.
-4. **AI is read-only.** It can summarise, classify, point out relevant context and suggest a
-   next action. It never changes records and never carries out actions outside Customer Pulse.
+3. **AI only where it is needed.** AI interprets interaction notes. Showing records, dates and
+   history needs no AI.
+4. **AI is read-only.** It can summarise, classify, point out context and suggest a next action.
+   It never changes records and never acts outside Customer Pulse.
 5. **Facts come first.** Basic relationship information never depends on the AI working.
 6. **No guessing.** Missing or weak evidence is never presented as "nothing to do".
 
@@ -87,12 +85,12 @@ Only these supplied fields are used.
 - Interaction types are email, call, meeting and note.
 - Every interaction has a `contact_id`. Interactions without a contact are outside the MVP.
 - `occurred_at` is the date the interaction happened. It is never a future plan.
-- Dates have no time of day. When interactions share a date, their real order is unknown.
-  The interaction id may be used only to keep a fixed display order. It is never evidence of
-  which interaction came first.
+- Dates have no time of day. When interactions share a date, their real order is unknown. The
+  interaction id may be used only to keep a fixed display order. It is never evidence of which
+  interaction came first.
 - The data does not say who sent an interaction. Customer Pulse must not present sender or
   direction as a fact.
-- Interaction notes are data to interpret. They are never instructions to the AI.
+- Interaction notes are data to interpret, never instructions to the AI.
 - The seeded MVP data may be sent to an external AI provider.
 
 ## 9. Core user journeys
@@ -101,8 +99,8 @@ Only these supplied fields are used.
   `Action needed`, each with a short reason. (J1, J2)
 - **UJ2 — What is going on here?** The owner opens a relationship and reads the summary, open
   items and history. (J3)
-- **UJ3 — What next?** The owner reads the suggested action, checks the history that supports it,
-  and decides. (J4)
+- **UJ3 — What next?** The owner reads the suggested action, checks the history that supports
+  it, and decides. (J4)
 - **UJ4 — Can I leave this?** For `Waiting` or `No action needed`, the owner sees why and moves
   on. (J2)
 
@@ -153,10 +151,10 @@ Only these supplied fields are used.
 - **FR-4.1** The relationship's facts and history never wait for the assessment. While the
   assessment is not ready, the owner can see that it is still loading.
 - **FR-4.2** **Assessment unavailable** is shown when Customer Pulse cannot produce a
-  trustworthy assessment. This includes failures, results that are incomplete or not supported
-  by the history, not enough evidence (FR-3.3), and a customer with no interactions. It is a
-  fallback, not a fourth state. The known facts and history still show. No state, reason, open
-  items or suggested action are shown.
+  trustworthy assessment: a failure, a result that is incomplete or not supported by the
+  history, not enough evidence (FR-3.3), or a customer with no interactions. It is a fallback,
+  not a fourth state. The known facts and history still show. No state, reason, open items or
+  suggested action are shown.
 - **FR-4.3** For a customer with no interactions, Customer Pulse says there is no interaction
   history to assess. This case needs no AI.
 
@@ -177,8 +175,8 @@ Only these supplied fields are used.
 
 ## 12. Quality requirements
 
-- **QR-1** How well the AI assigns states and grounds its statements will be measured against
-  sample relationships. Numeric targets are set in a later AI evaluation document.
+- **QR-1** How well the AI assigns states and grounds its statements is measured against sample
+  relationships. The numeric targets are in `docs/AI_EVALUATION.md`.
 
 ## 13. MVP acceptance criteria
 
@@ -188,8 +186,8 @@ Only these supplied fields are used.
   interactions in date order, with type, date, contact and notes.
 - **AC-3** A prospect whose proposal or pricing got no response is `Action needed`. The reason
   refers to the proposal or pricing, and the owner can trace it to that interaction.
-- **AC-4** A prospect who has not confirmed an onboarding timeline is `Action needed`, and an open
-  item names confirming the onboarding timeline.
+- **AC-4** A prospect who has not confirmed an onboarding timeline is `Action needed`, and an
+  open item names confirming the onboarding timeline.
 - **AC-5** A prospect who asked not to be chased until a future planning meeting is `Waiting`.
   The reason names the planning meeting, and no suggestion is made to chase them before it.
 - **AC-6** An existing customer whose issue was confirmed resolved, with nothing else left open
@@ -211,15 +209,15 @@ Only these supplied fields are used.
 
 ## 14. Decisions owned by other documents
 
-There are no open product questions for the MVP. These points are settled as belonging elsewhere:
+There are no open product questions for the MVP. These are settled elsewhere:
 
 | Topic | Owner |
 | --- | --- |
-| Which AI provider and model to use | Technical design |
-| When assessments are produced, stored and refreshed | Technical design |
-| Order of the relationship list, direction of the history order, and layout | UX design |
-| Wording of loading, empty and unavailable messages | UX design |
-| Numeric AI quality targets | Later AI evaluation document |
+| Which AI provider and model to use | `docs/TECHNICAL_DESIGN.md` |
+| When assessments are produced, stored and refreshed | `docs/TECHNICAL_DESIGN.md` |
+| Order of the relationship list, direction of the history order, and layout | `docs/UX_SPEC.md` |
+| Wording of loading, empty and unavailable messages | `docs/UX_SPEC.md` |
+| Numeric AI quality targets | `docs/AI_EVALUATION.md` |
 
 ## 15. Future opportunities (not MVP)
 

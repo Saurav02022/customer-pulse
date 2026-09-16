@@ -2,11 +2,11 @@
 
 Status: **Approved for MVP implementation.**
 
-How the MVP works from the owner's point of view. Requirements come from the frozen PRD
-(`docs/PRD.md`, v0.3). `docs/UI_RESEARCH.md` is evidence; "P14" and similar refer to its
-section 5 table. This document does not decide architecture, APIs, data storage, frameworks,
-AI output format or visual styling. Quoted copy is draft wording. Examples use the seeded data
-and are illustrations, not expected AI output.
+How the MVP works from the owner's point of view. Requirements come from `docs/PRD.md` (v0.3,
+frozen). `docs/UI_RESEARCH.md` is the evidence behind the choices here; "P14" and similar refer
+to the patterns in its relevance table. This document does not decide architecture, APIs, data
+storage, AI output format or visual styling. Quoted copy is draft wording. Examples use the
+seeded data and are illustrations, not expected AI output.
 
 ## 1. UX goals
 
@@ -37,19 +37,18 @@ Relationship detail    one relationship
   └── Interaction history
 ```
 
-- No navigation menu, dashboard, settings, search or help page. The product name at the top
-  leads back to the list.
-- Each state's meaning is shown where the state is shown, so no help page is needed.
-- An open relationship survives browser back, forward and reload.
+No navigation menu, dashboard, settings, search or help page. The product name at the top leads
+back to the list. Each state's meaning is shown where the state is shown, so no help page is
+needed. An open relationship survives browser back, forward and reload.
 
-## 3. Primary user flow
+## 3. Primary flow
 
 1. The owner opens Customer Pulse. The list appears.
-2. The count line at the top shows how many relationships are in each state, and how many
-   have no assessment. Each non-zero count jumps to its section.
-3. The owner scans the `Action needed` group (first on the page): name, status, reason.
-4. The owner opens a relationship. Wide screen: detail opens beside the list. Narrow screen:
-   detail replaces the list.
+2. The count line at the top shows how many relationships are in each state and how many have
+   no assessment. Each non-zero count jumps to its section.
+3. The owner scans the `Action needed` group, first on the page: name, status, reason.
+4. The owner opens a relationship. Wide screen: the detail opens beside the list. Narrow
+   screen: the detail replaces the list.
 5. Facts show at once. The assessment shows when ready.
 6. The owner reads the assessment and opens "Based on" for any statement they want to check.
 7. If needed, the owner reads contacts and the full history on the same page.
@@ -66,36 +65,28 @@ usually enough to move on.
 
 1. **Customer name** — opens the relationship.
 2. **Assessment** — the state as a text label with a one-sentence reason. For a `Waiting`
-   relationship, the reason says what it is waiting for when the history supports it. A row
+   relationship the reason says what it is waiting for, when the history supports it. A row
    without an assessment shows a neutral message instead (section 5).
 3. **Status** — "Prospect" or "Customer".
 4. **Latest interaction** — the most recent date and what happened on it.
-   - One interaction on that date: date and type, for example
-     "Latest interaction: 29 Aug 2026 · Note".
-   - Several interactions on that date: date, count and their types as a set, for example
-     "Latest interaction: 20 Aug 2026 · 2 interactions: Email, Note". No single type is picked
-     as the latest. The types are listed in the PRD's fixed display order, which is only a
-     stable way to list them and says nothing about which came first. Interaction ids are
-     never used as evidence of order.
-   - It is **information only**. It is not an urgency score. It never sorts, colours, flags or
-     ranks a row, and its age never changes how the row looks.
-
-Example:
+   - One interaction on that date: date and type. "Latest interaction: 29 Aug 2026 · Note".
+   - Several on that date: date, count and their types as a set. "Latest interaction:
+     20 Aug 2026 · 2 interactions: Email, Note". No single type is picked as the latest. The
+     types are listed in the PRD's fixed display order, which is only a stable way to list them
+     and says nothing about which came first.
+   - It is information only. It never sorts, colours, flags or ranks a row, and its age never
+     changes how the row looks.
 
 > **Northstar Dental Group** · Prospect
 > `Action needed` — The proposal sent on 23 Aug 2026 has had no response.
 > Latest interaction: 29 Aug 2026 · Note
 
-### Not in the list
-
-Summary, open items, suggested action, "Based on" sources, contacts, note previews, record
-created date, total interaction counts, relative times ("3 weeks ago"), overdue or age styling,
-avatars, badges, confidence or health scores, and any action buttons. The row answers "who and
-why"; suggestions are read in the detail, next to their evidence.
+**Not in the row:** summary, open items, suggested action, "Based on" sources, contacts, note
+previews, record created date, total interaction counts, relative times ("3 weeks ago"),
+overdue or age styling, avatars, badges, confidence or health scores, action buttons. The row
+answers "who and why"; suggestions are read in the detail, next to their evidence.
 
 ## 5. Grouping and finding attention
-
-### Business-state groups
 
 The list shows three groups, in this order, each with a heading, a count and a meaning line:
 
@@ -105,78 +96,70 @@ The list shows three groups, in this order, each with a heading, a count and a m
 | 2 | `Waiting` | "The next step depends on something that has not happened yet." |
 | 3 | `No action needed` | "The history shows nothing needs doing right now." |
 
-- Rows within a group are in **alphabetical order** by customer name.
-- Empty groups are hidden. The count line still shows "0" for each state, as plain text.
-- No filter controls in the MVP.
+Rows within a group are in alphabetical order by customer name. Empty groups are hidden; the
+count line still shows "0" for each state, as plain text. There are no filter controls.
+
+`Action needed` is always first so the main question needs no clicks. Alphabetical order means
+nothing, so it cannot suggest a priority the assessment does not give. Order comes only from the
+state; dates never sort or rank, and a passing date changes nothing. The cost is that there is
+no "most pressing first" within `Action needed`, and a long list needs scrolling. Revisit
+filters only if the data grows.
 
 ### Relationships without an assessment
 
-`Assessment unavailable` is the PRD fallback condition, **not** a fourth business state. These
-relationships sit in a separate section after the three groups, headed "Assessment
-unavailable", with the line "Customer Pulse could not produce a trustworthy assessment for
-these relationships. Their facts and history are still available."
+`Assessment unavailable` is the PRD fallback, not a fourth business state. These relationships
+sit in a separate section after the three groups, headed "Assessment unavailable", with the
+line "Customer Pulse could not produce a trustworthy assessment for these relationships. Their
+facts and history are still available."
 
-- The section looks different from the state groups: its heading is not styled as a state,
-  and its rows carry no state label.
+- The section looks different from the state groups: its heading is not styled as a state, and
+  its rows carry no state label.
 - Each row shows a neutral explanation in place of a state and reason:
   - "No interaction history"
   - "Not enough clear history to assess"
   - "Temporary problem — assessment could not be produced"
   - "Cause not known"
-- The count line lists it apart from the states, for example:
-  "2 Action needed · 3 Waiting · 2 No action needed — 1 assessment unavailable". That last
-  part links to the section and appears only when the number is above zero.
+- The count line lists it apart from the states: "2 Action needed · 3 Waiting · 2 No action
+  needed — 1 assessment unavailable". The last part links to the section and appears only when
+  the number is above zero.
 - While assessments load, rows without a result sit in a separate "Assessing…" area, also
-  outside the state groups, just before the unavailable section. When a result arrives, the
-  row moves to its group or to the unavailable section. Focus does not move and the page does
-  not jump.
+  outside the state groups, just before the unavailable section. When a result arrives, the row
+  moves to its group or to the unavailable section. Focus does not move and the page does not
+  jump.
 
-### Why
-
-- `Action needed` is always first, so the main question needs no clicks.
-- Alphabetical order means nothing, so it cannot suggest a priority the assessment does not
-  give. Order comes only from the state. Dates never sort or rank, and a passing date changes
-  nothing.
-- A separate section means a missing answer cannot be read as "wait" or "nothing to do".
-
-### Trade-offs
-
-- **Separate "Assessment unavailable" section.** It sits at the bottom, so it is below
-  `No action needed`, and an owner who only scans the top may miss it. The count line link and
-  the distinct heading make it findable, but it is less visible than a group near the top. We
-  accept this so it never reads as a peer of the business states.
-- **Alphabetical order.** No "most pressing first" within `Action needed`.
-- **Loading.** Rows move out of the "Assessing…" area as assessments finish.
-- **No filter.** A long list needs scrolling. Revisit if the data grows.
+Putting the section at the bottom means an owner who only scans the top may miss it. The count
+line link and the distinct heading make it findable. We accept that so it never reads as a
+peer of the business states, and so a missing answer cannot be read as "wait" or "nothing to
+do".
 
 ## 6. Relationship detail
 
 One page, no tabs, in this order:
 
-1. **Facts** — name (page heading), status, "Record created 12 May 2026". On narrow screens,
-   a "Back to all relationships" link.
+1. **Facts** — name (page heading), status, "Record created 12 May 2026". On narrow screens, a
+   "Back to all relationships" link.
 2. **Assessment** (section 7), with a subtle label: "AI assessment, based on this
    relationship's interaction history". It is visually set apart from the facts so AI
    interpretation is never mistaken for recorded data.
-3. **Contacts** — name, role, email. Email is plain, selectable text, not a link. No contact
-   is marked as "primary". None: "No contacts recorded for this relationship."
+3. **Contacts** — name, role, email. Email is plain, selectable text, not a link. No contact is
+   marked "primary". None: "No contacts recorded for this relationship."
 4. **Interaction history** (section 9).
 
 On wide screens, contacts may sit beside the facts, as long as the reading order stays the
-same.
+same. One page keeps the evidence always reachable; the cost is a longer page.
 
 ## 7. AI assessment
 
 ### For all states
 
-- The state is a text label followed by its meaning line. Colour may support it, never
-  replace it.
-- Parts shown: reason, summary, open items, next step (as the state allows). Each part has its
+- The state is a text label followed by its meaning line. Colour may support it, never replace
+  it.
+- Parts shown: reason, summary, open items, next step, as the state allows. Each part has its
   own "Based on" control (section 8).
 - Open items are one line each. With several contacts, each item names its contact. Empty:
   "No open items."
-- No confidence score. No buttons except "Based on" controls: no done, dismiss, snooze, send,
-  schedule or create.
+- No confidence score. The owner judges certainty from the evidence. No buttons except "Based
+  on" controls: no done, dismiss, snooze, send, schedule or create.
 - No sender or direction presented as fact.
 
 ### Per state
@@ -187,8 +170,8 @@ same.
 | `Waiting` | The assessment makes clear what the relationship is waiting for, whenever the history supports it. If a next step is given, it is shown after that waiting condition and worded so it clearly applies only once the event or condition happens. | Acting before the event. No countdown, "due" or "overdue" wording. A mentioned date that has passed changes nothing. Not the same as "nothing to do". |
 | `No action needed` | None: "No next action suggested." | That the relationship is "healthy" or should never be contacted. |
 
-The UX does not need a particular AI output format for the waiting condition. It can be
-part of the reason or shown on its own, as long as the owner can see it.
+The UX does not need a particular AI output format for the waiting condition. It can be part of
+the reason or shown on its own, as long as the owner can see it.
 
 ### Assessment unavailable
 
@@ -203,9 +186,11 @@ unchanged.
 | Temporary failure | "The assessment could not be produced because of a temporary problem. The facts and history below are not affected." |
 | Cause not known | "Customer Pulse could not produce a trustworthy assessment. Read the history below to decide." |
 
-All four are the same PRD fallback. The different wording only helps the owner know whether
-reading the history themselves is the answer (thin context) or whether trying later may help
-(failure).
+All four are the same PRD fallback. The different wording only tells the owner whether reading
+the history themselves is the answer (thin context) or whether trying later may help (failure).
+The messages apply only where the technical design can tell the causes apart; otherwise the
+"cause not known" message is used. "Try again", if offered for a failed assessment, appears
+only for a temporary failure.
 
 ### Loading
 
@@ -216,54 +201,45 @@ reading the history themselves is the answer (thin context) or whether trying la
 
 ## 8. Evidence and traceability
 
-### Pattern: collapsed "Based on" per part
+The reason, the summary, each open item and the suggested action each have one small control:
+"Based on 2 interactions". It starts collapsed. Opening it shows a compact list of those
+interactions: type, date and contact ("Email · 23 Aug 2026 · Sarah Mitchell"). Each item can:
 
-- The reason, the summary, each open item and the suggested action each have one small
-  control: "Based on 2 interactions". It starts collapsed.
-- Opening it shows a compact list of those interactions: type, date and contact
-  ("Email · 23 Aug 2026 · Sarah Mitchell"). Each item can:
-  - **show the original note** in place, word for word as recorded, and
-  - **"Show in history"**: jump to that interaction in the history, where it is marked with
-    text (not colour alone). A "Back to assessment" link returns to where the owner was.
-- Only original notes are shown as evidence. No AI-picked quotes.
-- Interactions with empty notes are never listed.
-- A part with no supporting interactions is not shown; an assessment that cannot be traced is
-  Assessment unavailable.
+- **show the original note** in place, word for word as recorded, and
+- **"Show in history"**: jump to that interaction in the history, where it is marked with text,
+  not colour alone. A "Back to assessment" link returns to where the owner was.
 
-### Trade-off
+Only original notes are shown as evidence, never AI-picked quotes. Interactions with empty
+notes are never listed. A part with no supporting interactions is not shown; an assessment
+that cannot be traced is Assessment unavailable.
 
-Evidence is one click away instead of always visible. This keeps the assessment short and
-easy to scan. The cost is that the owner must choose to check. Two levels (list of sources,
-then the note) keep an open "Based on" short even when it cites several interactions.
-Rejected: evidence always expanded (too heavy), marking cited items only inside the history
-(forces page jumps, hard on phones and screen readers), and hover pop-ups (no touch or
-keyboard support).
+Evidence is one click away instead of always visible. This keeps the assessment short and easy
+to scan; the cost is that the owner must choose to check. Two levels (list of sources, then the
+note) keep an open "Based on" short even when it cites several interactions. Rejected: evidence
+always expanded (too heavy), marking cited items only inside the history (forces page jumps,
+hard on phones and screen readers), and hover pop-ups (no touch or keyboard support).
 
 ## 9. Interaction history
 
 - **Newest date first**, so the current context is at the top.
 - **Grouped under date headings** ("22 Aug 2026"). Each date appears once.
 - Each interaction shows its type as a word, "Contact: Sarah Mitchell, Owner", and the full
-  notes as plain text (text in notes never becomes links, formatting or instructions). Never
+  notes as plain text. Text in notes never becomes links, formatting or instructions. Never
   "From" or "To". Empty notes: "No notes recorded."
 - Interaction ids are never shown and never used to suggest order.
 
-### Same-date interactions
-
-- Listed under their shared date heading, in the PRD's fixed display order, which is only for
-  a stable layout.
-- No numbers, arrows, connecting lines or "then/later" wording between them. Any line joining
-  dates connects date headings only.
-- When a date has more than one interaction, the heading says: "2 interactions — order within
-  this date is not known."
+Same-date interactions are listed under their shared date heading, in the PRD's fixed display
+order, which is only for a stable layout. No numbers, arrows, connecting lines or "then/later"
+wording between them; any line joining dates connects date headings only. When a date has more
+than one interaction, the heading says: "2 interactions — order within this date is not
+known."
 
 > **20 Aug 2026** — 2 interactions — order within this date is not known
 > Email · Contact: Chris Evans, Dentist — "Chris replied that pricing looks reasonable…"
 > Note · Contact: Chris Evans, Dentist — "Need to confirm onboarding timeline…"
 
-**Trade-off:** newest first puts the latest context at the top, but reading the story from the
-start means scrolling down and reading upwards. The assessment summary covers most of that
-need.
+Newest first puts the latest context at the top, but reading the story from the start means
+scrolling down and reading upwards. The assessment summary covers most of that need.
 
 ## 10. Product states
 
@@ -275,7 +251,7 @@ need.
 | Assessment unavailable | Sections 5 and 7. Facts, contacts and history still show. |
 | No interactions | List: "No interaction history" in the "Assessment unavailable" section; latest interaction reads "No interactions yet". Detail: assessment message from section 7; history reads "No interactions recorded for this relationship." |
 | No contacts | "No contacts recorded for this relationship." |
-| Thin or unclear history | No special state. If the history clearly supports a business state, that state shows with its evidence; otherwise it is `Assessment unavailable` with "Not enough clear context". Missing or weak evidence is never shown as `No action needed`. |
+| Thin or unclear history | No special state. If the history clearly supports a business state, that state shows with its evidence; otherwise `Assessment unavailable` with "Not enough clear context". Missing or weak evidence is never shown as `No action needed`. |
 | List fails to load | "Customer Pulse could not load your relationships. Try again." with a "Try again" button. Never the empty-list message. |
 | Detail fails to load | "Customer Pulse could not load this relationship." with "Try again" and a back link. |
 | Part of the detail fails to load | That area shows its own error with "Try again"; the rest still shows. A failed load is never shown as "No interactions" or "No contacts". |
@@ -286,9 +262,9 @@ need.
 
 ## 11. Responsive behaviour
 
-Desktop and laptop are the primary context for the information design. That is a design
-priority. It does not conflict with writing responsive styles mobile-first; this document does
-not decide how styles are written.
+Desktop and laptop are the primary context for the information design. That does not conflict
+with writing responsive styles mobile-first; this document does not decide how styles are
+written.
 
 | | Wide screens | Narrow screens |
 | --- | --- | --- |
@@ -296,17 +272,16 @@ not decide how styles are written.
 | Nothing selected | "Select a relationship to see its details." Nothing opens by itself. | List only. |
 | Content | Same rows, same detail order, same "Based on" behaviour. | Same. Nothing is dropped. |
 
-- The layout switches when the detail would be too narrow to read. The exact width is decided
-  later.
-- Nothing is available only on hover. Controls are easy to tap. The page never scrolls
-  sideways, even with long notes or email addresses.
+The layout switches when the detail would be too narrow to read; the exact width is decided in
+implementation. Nothing is available only on hover. Controls are easy to tap. The page never
+scrolls sideways, even with long notes or email addresses.
 
-## 12. Accessibility and clarity
+## 12. Accessibility
 
 - One main heading per view, headings in order. The list is a real list, and each row is one
   link named by the customer.
-- State, status and interaction type are always words. "Based on" controls say what they
-  cover ("Based on 2 interactions, for the reason") and whether they are open.
+- State, status and interaction type are always words. "Based on" controls say what they cover
+  ("Based on 2 interactions, for the reason") and whether they are open.
 - Keyboard only works end to end with visible focus. Opening a relationship moves focus to its
   heading; going back returns it to the row.
 - No meaning by colour alone.
@@ -316,34 +291,17 @@ not decide how styles are written.
 
 ## 13. Out of scope
 
-- Creating, editing, deleting or importing data. Sign-in, users, more than one workspace.
-- Correcting, dismissing, snoozing, completing or rating an assessment.
-- Tasks, reminders, notifications, badges, scheduling, calendar views.
-- Email, messaging, calling, drafting, campaigns, or links that start them.
-- Deals, pipeline, reports, analytics, charts, business-number dashboards, AI chat.
-- Search, saved views, custom sorting, filters.
-- Any date-based urgency: overdue, due today, "no contact in N days", relative times.
-- Showing when an assessment was produced (timing belongs to the technical design).
-- Visual styling: colours, fonts, spacing, icons, components.
+PRD section 7 lists the product non-goals. On top of those, the UX has:
 
-## 14. Decisions and trade-offs
+- no completing or rating an assessment; no badges, charts or business-number dashboards; no
+  links that start an email or a call;
+- no date-based urgency of any kind: overdue, due today, "no contact in N days", relative
+  times;
+- no search, saved views, custom sorting or filters;
+- no display of when an assessment was produced (timing belongs to the technical design);
+- no visual styling decisions: colours, fonts, spacing, icons, components.
 
-| Decision | Why | Trade-off |
-| --- | --- | --- |
-| Two views: list and detail | All the PRD needs. | Extras need a new decision. |
-| Group by business state; alphabetical within | `Action needed` first; order carries no false priority. | No "most pressing first". |
-| `Assessment unavailable` relationships in a separate section after the groups | Never reads as a fourth state or as "nothing to do". | Lower on the page; relies on the count line and a distinct heading to be found. |
-| Unavailable message varies by cause, when known | Tells the owner whether to read the history or try later. | Four messages to write and test; all are the same fallback. |
-| Count line as navigation, no filters | Enough for a small list. | Long lists need scrolling. |
-| Latest interaction shown as information only; a shared date shows the count and all its types | Useful context without urgency or false order; still shows type as FR-1.1 requires. | Slightly longer row. |
-| Side by side on wide screens, separate screens on narrow | Fast switching on desktop; readable on phones. | Two layouts to check. |
-| One detail page, no tabs: facts → assessment → contacts → history | Evidence always reachable. | Longer page. |
-| Subtle "AI assessment" label, set apart from facts; no confidence score | AI interpretation stays separate from recorded data. | Owner judges certainty only from the evidence. |
-| Collapsed "Based on" per part, then note in place or jump to history | Traceable without a heavy assessment. | Evidence takes a click. |
-| History newest date first, grouped by date | Current context first; same-date items share a heading with no false order. | Reading the story from the start runs bottom to top. |
-| Email as plain text | No communication actions. | Owner copies the address. |
-
-## 15. UX acceptance checklist
+## 14. UX acceptance checklist
 
 **List**
 
@@ -352,11 +310,10 @@ not decide how styles are written.
 - [ ] A latest date shared by several interactions shows the date, the count and all their
       types, with none presented as the latest (for example Parkview Dental Studio,
       20 Aug 2026).
-- [ ] Groups appear as `Action needed`, `Waiting`, `No action needed`, with rows in
-      alphabetical order.
-- [ ] Relationships with an unavailable assessment appear only in the separate
-      "Assessment unavailable" section,
-      with no state label, and the count line links to it.
+- [ ] Groups appear as `Action needed`, `Waiting`, `No action needed`, rows in alphabetical
+      order.
+- [ ] Relationships with an unavailable assessment appear only in the separate "Assessment
+      unavailable" section, with no state label, and the count line links to it.
 - [ ] The count line shows all three states (including 0) and non-zero counts jump to their
       group.
 - [ ] No row shows a suggestion, note preview, relative time, overdue marker, badge or score.
@@ -382,8 +339,8 @@ not decide how styles are written.
 
 - [ ] Reason, summary, each open item and the suggested action each have a collapsed
       "Based on" control.
-- [ ] Opening it lists the supporting interactions; each can show its original note or jump
-      to it in the history, where it is marked with text.
+- [ ] Opening it lists the supporting interactions; each can show its original note or jump to
+      it in the history, where it is marked with text.
 - [ ] No interaction with empty notes is listed.
 
 **History**
@@ -401,14 +358,4 @@ not decide how styles are written.
 - [ ] Wide screen: list and detail side by side, nothing opens by itself.
 - [ ] Phone: separate screens, back keeps list position, no sideways scrolling.
 - [ ] The whole flow works by keyboard with visible focus; focus returns to the row on back.
-- [ ] No meaning depends on colour alone; assessment loading results are announced.
-
-## Open questions
-
-These do not block review, and none needs a PRD change.
-
-1. **Knowing the cause of an unavailable assessment.** The varied messages in section 7 apply
-   only if the technical design can tell the causes apart. Otherwise the "cause not known"
-   message is used.
-2. **"Try again" for a failed assessment.** This depends on when assessments are produced
-   (technical design). If offered, it appears only for a temporary failure.
+- [ ] No meaning depends on colour alone; assessment results are announced.

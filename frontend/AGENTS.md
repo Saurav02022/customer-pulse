@@ -16,49 +16,49 @@ leave it as it is and add rules below it.
 ## Stack
 
 Next.js 16 (App Router, `app/` folder), React 19, TypeScript in strict mode, Tailwind CSS 4,
-ESLint 9. npm is the package manager (`package-lock.json`). Import alias: `@/*` points to `frontend/*`.
+ESLint 9. npm is the package manager (`package-lock.json`); Node 24 is pinned by the root
+`.nvmrc` and `engines`. Import alias: `@/*` points to `frontend/*`.
 
 ## Commands (run in `frontend/`)
 
+- Install: `npm ci`. Commit a `package-lock.json` change only when `package.json` changed.
 - Lint: `npm run lint`
 - Type-check: `npx next typegen && npx tsc --noEmit`. Plain `tsc` fails on a fresh checkout,
   because Next.js generates route types such as `LayoutProps`.
-- Build: `npm run build`
-- Tests: Vitest and React Testing Library are the approved frontend test stack. They may not be
-  installed yet. Do not add any other frontend test runner or framework without approval.
+- Build: `npm run build`, only as the production-build rule in `docs/DEVELOPMENT_GUIDE.md`
+  allows.
+- Tests: Vitest and React Testing Library are the approved test stack. They are not installed
+  yet; say so instead of claiming tests ran. Do not add any other frontend test runner or
+  framework without approval.
 
-## Components
+## Components, data and state
 
-- Use Server Components by default. Add `"use client"` only where you need state, effects, event
+- Server Components by default. Add `"use client"` only where you need state, effects, event
   handlers or browser APIs, and keep that client part as small as possible.
-- Give each component one clear job. Split a component when data loading, interaction and layout
-  start changing for different reasons.
-- Do not create shared folders or component libraries before a second real use needs them.
-
-## Data and state
-
+- One clear job per component. Split when data loading, interaction and layout start changing
+  for different reasons. No shared folders or component libraries before a second real use
+  needs them.
 - Keep API calls out of presentational components. Load data in server components, route
   handlers or a small data-access module, and pass typed props down.
-- Type every API response. Check or narrow data from the network instead of casting it with `as`.
-- Prefer server data, URL state and local component state. Add no global state library without a
+- Type every API response and narrow data from the network with type guards, not `as`.
+- Prefer server data, URL state and local component state. No global state library without a
   clear need.
-- Read the backend URL and other settings from environment variables. Only `NEXT_PUBLIC_*` values
-  reach the browser, so never put secrets in them.
+- Read the backend URL and other settings from environment variables. Only `NEXT_PUBLIC_*`
+  values reach the browser, so never put secrets in them.
 
 ## UI
 
-- Use semantic HTML: real `button`, `a`, `form`, `label`, `table` and list elements, and headings
-  in order.
-- Everything must work with a keyboard. Keep focus visible, label every input, give meaningful
+- Semantic HTML: real `button`, `a`, `form`, `label`, `table` and list elements, headings in
+  order.
+- Everything works with a keyboard. Keep focus visible, label every input, give meaningful
   images `alt` text, keep text contrast readable, and never use colour as the only signal.
-- Build mobile-first with Tailwind, and check narrow and wide screens.
-- Keep the product UI simple and consistent. Reuse `app/globals.css` and Tailwind before writing
-  new CSS.
-- Where data loads or an action runs, handle the loading, empty, error and success states. Error
-  messages say what happened and what the user can do next.
+- Mobile-first with Tailwind; check narrow and wide screens. Reuse `app/globals.css` and
+  Tailwind before writing new CSS.
+- Where data loads or an action runs, handle the loading, empty, error and success states.
+  Error messages say what happened and what the user can do next.
 - Before adding a package, check whether HTML, CSS, React or Next.js already covers it.
 
 ## Tests
 
-- When a test runner exists, test what users see and do: rendered content, interactions and the
-  loading, empty and error states. Do not test internal implementation details.
+- When the test runner exists, test what users see and do: rendered content, interactions and
+  the loading, empty and error states. Do not test internal implementation details.
