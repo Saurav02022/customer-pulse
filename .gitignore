@@ -23,3 +23,5 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+
+.context/
