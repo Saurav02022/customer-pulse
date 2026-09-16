@@ -1,8 +1,10 @@
-"""SQLite persistence: tables and engine."""
+"""SQLite persistence: tables, engine, request sessions and the schema check."""
 
+from collections.abc import Iterator
 from datetime import date
 from typing import Literal, get_args
 
+from fastapi import Request
 from sqlalchemy import (
     CheckConstraint,
     Engine,
@@ -13,8 +15,9 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     event,
+    inspect,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 CustomerStatus = Literal["prospect", "customer"]
 InteractionType = Literal["email", "call", "meeting", "note"]
@@ -93,3 +96,15 @@ def make_engine(database_url: str) -> Engine:
 
 def create_tables(engine: Engine) -> None:
     Base.metadata.create_all(engine)
+
+
+def missing_tables(engine: Engine) -> list[str]:
+    """Names of required tables the database does not have, in a stable order."""
+    present = set(inspect(engine).get_table_names())
+    return sorted(name for name in Base.metadata.tables if name not in present)
+
+
+def get_session(request: Request) -> Iterator[Session]:
+    """One session per request, opened on the app's engine and always closed."""
+    with Session(request.app.state.engine) as session:
+        yield session

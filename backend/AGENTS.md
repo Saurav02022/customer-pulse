@@ -5,17 +5,18 @@ Rules for `backend/`. The root `AGENTS.md` still applies.
 ## Stack
 
 Python FastAPI service, with Pydantic v2 and Uvicorn. The app lives in `app/main.py`.
-`pydantic-settings`, SQLAlchemy 2, httpx and pytest are installed but not used in code yet.
+`pydantic-settings` reads settings and SQLAlchemy 2 handles persistence. httpx is installed
+but not used in code yet.
 `requirements.txt` holds exact pinned versions. Python 3.12 is pinned by the root
 `.python-version`; the local virtualenv at `backend/.venv` is not committed.
 
 ## Commands (run in `backend/` with `.venv` active)
 
 - Install: `pip install -r requirements.txt`
-- Tests: `pytest` (no tests exist yet)
-- Lint and format: Ruff is the approved tool but is not installed or configured yet. Until the
-  tooling stage adds it, say Ruff did not run. Once it is installed, run `ruff check` and
-  `ruff format --check` like any other check.
+- Tests: pytest is configured and tests live under `backend/tests/`. Run `pytest` for any
+  relevant backend change.
+- Lint and format: Ruff is installed and configured in `pyproject.toml`. Normal backend
+  verification runs `ruff check .` and `ruff format --check .`.
 - No type-checker is set up, and mypy is deliberately not added. Say so instead of claiming
   this check passed.
 - When you add a dependency, add it to `requirements.txt` with an exact version.
