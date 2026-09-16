@@ -20,7 +20,8 @@ from assessment_support import (
 )
 
 from app.assessment import model_input
-from app.assessment.model_input import build_model_input
+from app.assessment.model_input import build_model_input, canonical_json, fingerprint
+from app.db import Contact
 
 HANDLE = re.compile(r"^[ec]_[0-9a-f]{10}$")
 
@@ -131,3 +132,98 @@ def test_handle_clash_is_a_bug(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(model_input, "handle", lambda prefix, _id: prefix + "0" * 10)
     with pytest.raises(ValueError, match="not unique"):
         build_model_input("prospect", [OWNER, MANAGER], [])
+
+
+# --- fingerprint ---
+
+
+def sample_fingerprint(**changes: str) -> str:
+    data, _ = sample_input()
+    args = {"provider": "gemini", "model": "gemini-3.8-flash"} | changes
+    return fingerprint(data, **args)
+
+
+def test_same_input_gives_the_same_fingerprint() -> None:
+    first = sample_fingerprint()
+    assert first == sample_fingerprint()
+    assert re.fullmatch(r"[0-9a-f]{64}", first)
+
+
+def test_input_order_does_not_change_the_fingerprint() -> None:
+    backward, _ = build_model_input(
+        "prospect", [MANAGER, OWNER], list(reversed(INTERACTIONS))
+    )
+    assert fingerprint(backward, "gemini", "m") == sample_fingerprint(model="m")
+
+
+def test_same_date_order_does_not_change_the_fingerprint() -> None:
+    # int_102 and int_103 share a date; swap only them.
+    swapped = [INTERACTIONS[0], INTERACTIONS[2], INTERACTIONS[1], INTERACTIONS[3]]
+    data, _ = build_model_input("prospect", [OWNER, MANAGER], swapped)
+    assert fingerprint(data, "gemini", "m") == sample_fingerprint(model="m")
+
+
+def test_provider_and_model_change_the_fingerprint() -> None:
+    base = sample_fingerprint()
+    assert sample_fingerprint(provider="other") != base
+    assert sample_fingerprint(model="gemini-2.5-flash") != base
+
+
+@pytest.mark.parametrize(
+    "name", ["PROMPT_VERSION", "SYSTEM_INSTRUCTION", "RESPONSE_SCHEMA"]
+)
+def test_prompt_or_schema_change_changes_the_fingerprint(
+    monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    base = sample_fingerprint()
+    changed = {
+        "PROMPT_VERSION": "assessment-v2",
+        "SYSTEM_INSTRUCTION": model_input.SYSTEM_INSTRUCTION + " ",
+        "RESPONSE_SCHEMA": {"type": "object"},
+    }[name]
+    monkeypatch.setattr(model_input, name, changed)
+    assert sample_fingerprint() != base
+
+
+def vars_of(contact: Contact) -> dict:
+    fields = ("id", "customer_id", "name", "email", "role")
+    return {field: getattr(contact, field) for field in fields}
+
+
+def facts_fingerprint(status="prospect", contacts=(OWNER, MANAGER), interactions=None):
+    data, _ = build_model_input(status, contacts, interactions or INTERACTIONS)
+    return fingerprint(data, "gemini", "m")
+
+
+def test_facts_the_model_sees_change_the_fingerprint() -> None:
+    base = facts_fingerprint()
+    renamed = Contact(**{**vars_of(OWNER), "name": "Asha R."})
+    new_note = interaction("int_103", date(2026, 8, 20), "Pricing accepted.")
+    moved = interaction(
+        "int_101", date(2026, 8, 19), "Asked for pricing.", type="email"
+    )
+    assert facts_fingerprint(status="customer") != base
+    assert facts_fingerprint(contacts=(renamed, MANAGER)) != base
+    assert facts_fingerprint(interactions=[*INTERACTIONS[:2], new_note]) != base
+    assert facts_fingerprint(interactions=[moved, *INTERACTIONS[1:]]) != base
+    extra = interaction("int_105", date(2026, 8, 22), "Called back.")
+    assert facts_fingerprint(interactions=[*INTERACTIONS, extra]) != base
+
+
+def test_facts_the_model_never_sees_do_not_change_the_fingerprint() -> None:
+    new_email = Contact(**{**vars_of(OWNER), "email": "new@example.test"})
+    assert facts_fingerprint(contacts=(new_email, MANAGER)) == facts_fingerprint()
+
+
+def test_key_and_settings_do_not_change_the_fingerprint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base = sample_fingerprint()
+    monkeypatch.setenv("GEMINI_API_KEY", "another-test-key")
+    monkeypatch.setenv("GEMINI_MODEL", "another-model")
+    assert sample_fingerprint() == base
+
+
+def test_canonical_json_ignores_key_order_and_keeps_text() -> None:
+    assert canonical_json({"b": 1, "a": "é"}) == canonical_json({"a": "é", "b": 1})
+    assert canonical_json({"a": "é"}) == '{"a":"é"}'

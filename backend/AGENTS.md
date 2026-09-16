@@ -5,8 +5,8 @@ Rules for `backend/`. The root `AGENTS.md` still applies.
 ## Stack
 
 Python FastAPI service, with Pydantic v2 and Uvicorn. The app lives in `app/main.py`.
-`pydantic-settings` reads settings and SQLAlchemy 2 handles persistence. httpx is installed
-but not used in code yet.
+`pydantic-settings` reads settings and SQLAlchemy 2 handles persistence. httpx is used only for
+network error types in the Gemini provider.
 `requirements.txt` holds exact pinned versions. Python 3.12 is pinned by the root
 `.python-version`; the local virtualenv at `backend/.venv` is not committed.
 

@@ -22,7 +22,7 @@ How the MVP is built. Behaviour comes from `docs/PRD.md` (v0.3, frozen) and `doc
   Relationship list and detail from facts only, with Vitest and React Testing Library tests.
 - `backend/`: FastAPI 0.141.1, Pydantic 2.13, Uvicorn, `pydantic-settings`, SQLAlchemy 2.0.54
   on SQLite. Routes: `GET /`, `GET /api/relationships`, `GET /api/relationships/{id}`. pytest
-  tests and Ruff lint and format checks. httpx is installed but not used yet.
+  tests and Ruff lint and format checks. httpx is used only for Gemini network error types.
 - Seed fact data is committed as CSV under `backend/seed/` and loaded by `python -m app.seed`.
 
 Runtimes are pinned: Node 24 LTS through the root `.nvmrc`, `engines` and an exact
@@ -351,8 +351,11 @@ Gemini details:
 - The official `google-genai` package only, no legacy Gemini SDKs. Use the SDK's async client
   (`client.aio`).
 - Request structured JSON through the current `response_format` / JSON Schema mechanism of the
-  Gemini API. Send the flat schema from section 8, the system instruction and a low
-  temperature. Pydantic stays our validation boundary whatever the SDK returns.
+  Gemini API. Send the flat schema from section 8 and the system instruction. Pydantic stays
+  our validation boundary whatever the SDK returns.
+- Leave sampling at the model default: do not set `temperature`, `top_p` or `top_k`, as the
+  Gemini 3.8 Flash guidance advises. Reliability comes from structured output, the contract
+  and grounding checks, and the evaluation.
 - Implementation step 9 pins an exact `google-genai` version, confirms the call shape against
   that version's docs, and runs one small structured-output smoke test by hand before building
   the full provider.

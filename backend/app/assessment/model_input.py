@@ -7,12 +7,15 @@ group, listed by handle. Note text is passed as data only.
 """
 
 import hashlib
+import json
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from operator import itemgetter
 from typing import Any
 
+from app.assessment.contract import RESPONSE_SCHEMA
+from app.assessment.prompt import PROMPT_VERSION, SYSTEM_INSTRUCTION
 from app.db import Contact, CustomerStatus, Interaction
 
 
@@ -107,4 +110,38 @@ def build_model_input(
     return model_input, EvidenceMap(
         interactions=evidence,
         contacts={new: real_id for real_id, new in contact_handles.items()},
+    )
+
+
+def canonical_json(value: Any) -> str:
+    """The same text for the same data on every run: sorted keys, fixed separators.
+
+    Used for the input sent to the model and for the fingerprint, so a stored result
+    can be matched to exactly what the model saw.
+    """
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def fingerprint(model_input: dict[str, Any], provider: str, model: str) -> str:
+    """Identity of one assessment's inputs. It changes only when the model input, the
+    prompt, the response schema, the provider or the model changes; never with time.
+
+    Keys and other settings are not inputs, so they can never change it.
+    """
+    # prompt_sha catches a prompt or schema edit made without a version bump.
+    prompt_sha = _sha256(SYSTEM_INSTRUCTION + canonical_json(RESPONSE_SCHEMA))
+    return _sha256(
+        canonical_json(
+            {
+                "prompt_version": PROMPT_VERSION,
+                "prompt_sha": prompt_sha,
+                "provider": provider,
+                "model": model,
+                "input": model_input,
+            }
+        )
     )

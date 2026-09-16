@@ -82,6 +82,71 @@ ModelResult = Annotated[
 
 _model_result: TypeAdapter[ModelResult] = TypeAdapter(ModelResult)
 
+# --- The schema sent to the model ---
+#
+# Providers accept only part of JSON Schema (Gemini has no "const" or "pattern"), so the
+# model gets one flat object built from the union members: `outcome` and `state` become
+# enums, and every field except `outcome` may be null. It describes structure only.
+# parse_reply() still enforces the union and every state rule.
+
+_OUTCOMES = (InsufficientEvidence, ActionNeeded, Waiting, NoActionNeeded)
+_NOT_SENT = {"title", "description", "default", "pattern"}
+_NULL = {"type": "null"}
+
+
+def _inline(node: Any, defs: dict[str, Any]) -> Any:
+    """Resolve $ref and drop keywords the model does not need or cannot use."""
+    if isinstance(node, list):
+        return [_inline(item, defs) for item in node]
+    if not isinstance(node, dict):
+        return node
+    if "$ref" in node:
+        return _inline(defs[node["$ref"].removeprefix("#/$defs/")], defs)
+    return {
+        key: (
+            {name: _inline(field, defs) for name, field in value.items()}
+            if key == "properties"
+            else _inline(value, defs)
+        )
+        for key, value in node.items()
+        if key not in _NOT_SENT
+    }
+
+
+def _flat_response_schema() -> dict[str, Any]:
+    enums: dict[str, list[str]] = {}
+    fields: dict[str, Any] = {}
+    for model in _OUTCOMES:
+        schema = model.model_json_schema()
+        for name, field in schema["properties"].items():
+            field = _inline(field, schema.get("$defs", {}))
+            if "const" in field:
+                values = enums.setdefault(name, [])
+                if field["const"] not in values:
+                    values.append(field["const"])
+                continue
+            # Every field becomes nullable below, and parse_reply() enforces the
+            # empty open_items of No action needed.
+            field = next(s for s in field.get("anyOf", [field]) if s != _NULL)
+            field.pop("maxItems", None)
+            if fields.setdefault(name, field) != field:
+                raise ValueError(f"field {name} has different shapes across outcomes")
+
+    properties = {"outcome": {"type": "string", "enum": enums.pop("outcome")}}
+    for name, values in enums.items():
+        properties[name] = {"anyOf": [{"type": "string", "enum": values}, _NULL]}
+    for name, field in fields.items():
+        properties[name] = {"anyOf": [field, _NULL]}
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": list(properties),
+        "additionalProperties": False,
+    }
+
+
+RESPONSE_SCHEMA = _flat_response_schema()
+
 
 def _drop_nulls(value: Any) -> Any:
     # The schema sent to the model is flat with every field nullable, so a null object
