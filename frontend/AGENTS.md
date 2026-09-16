@@ -59,5 +59,5 @@ ESLint 9. npm is the package manager (`package-lock.json`); Node 24 is pinned by
 
 ## Tests
 
-- When the test runner exists, test what users see and do: rendered content, interactions and
-  the loading, empty and error states. Do not test internal implementation details.
+- Test what users see and do: rendered content, interactions and the loading, empty and
+  error states. Do not test internal implementation details.

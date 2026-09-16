@@ -20,10 +20,10 @@ How the MVP is built. Behaviour comes from `docs/PRD.md` (v0.3, frozen) and `doc
 
 - `frontend/`: Next.js 16.3.5, React 19.2.8, TypeScript strict, Tailwind 4, ESLint 9, npm.
   Relationship list and detail from facts only, with Vitest and React Testing Library tests.
-- `backend/`: FastAPI 0.141.1, Pydantic 2.13, Uvicorn, only `GET /`. Installed but unused so
-  far: `pydantic-settings`, SQLAlchemy 2.0.54, httpx, pytest. No linter yet.
-- No data in the repo. Sample rows exist only in `.context/` (untracked) until the seed step
-  commits them under `backend/seed/`.
+- `backend/`: FastAPI 0.141.1, Pydantic 2.13, Uvicorn, `pydantic-settings`, SQLAlchemy 2.0.54
+  on SQLite. Routes: `GET /`, `GET /api/relationships`, `GET /api/relationships/{id}`. pytest
+  tests and Ruff lint and format checks. httpx is installed but not used yet.
+- Seed fact data is committed as CSV under `backend/seed/` and loaded by `python -m app.seed`.
 
 Runtimes are pinned: Node 24 LTS through the root `.nvmrc`, `engines` and an exact
 `packageManager` with `engine-strict`, and Python 3.12 through the root `.python-version`.
