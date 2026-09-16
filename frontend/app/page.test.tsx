@@ -4,11 +4,12 @@ import { describe, expect, it } from "vitest";
 import Home from "./page";
 
 describe("Home", () => {
-  it("shows the product name", () => {
+  it("asks the owner to select a relationship and selects nothing itself", () => {
     render(<Home />);
 
     expect(
-      screen.getByRole("heading", { name: "Customer Pulse" }),
+      screen.getByText("Select a relationship to see its details."),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });

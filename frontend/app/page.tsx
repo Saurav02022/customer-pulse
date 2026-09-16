@@ -1,7 +1,9 @@
+// Shown beside the list on wide screens when nothing is selected. On narrow screens the
+// workspace hides this slot, so the list is the whole screen.
 export default function Home() {
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <h1 className="text-3xl font-semibold">Customer Pulse</h1>
-    </div>
+    <p className="text-neutral-600">
+      Select a relationship to see its details.
+    </p>
   );
 }

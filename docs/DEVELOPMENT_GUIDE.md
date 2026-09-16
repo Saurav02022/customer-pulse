@@ -84,8 +84,8 @@ Folder rules and commands are in `frontend/AGENTS.md` and `backend/AGENTS.md`. O
   approves it, and for UI interaction state the approved UX requires, such as focus and scroll
   restoration on back. Never move backend business state or business rules into frontend
   state. Show what the API returns.
-- Narrow API responses with type guards in `frontend/lib/api.ts`. Never `as`, `any` or
-  `@ts-ignore` to quiet TypeScript.
+- Narrow API responses with type guards in `frontend/features/relationships/api.ts`. Never
+  `as`, `any` or `@ts-ignore` to quiet TypeScript.
 - Format dates from the `YYYY-MM-DD` string, never through `new Date()`. Render notes and AI
   text as plain text.
 - State, status and type are always words; colour may support meaning, never carry it alone.

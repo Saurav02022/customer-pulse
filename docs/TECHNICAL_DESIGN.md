@@ -19,7 +19,7 @@ How the MVP is built. Behaviour comes from `docs/PRD.md` (v0.3, frozen) and `doc
 ## 2. Repository and runtimes
 
 - `frontend/`: Next.js 16.3.5, React 19.2.8, TypeScript strict, Tailwind 4, ESLint 9, npm.
-  Placeholder page, no test runner yet.
+  Relationship list and detail from facts only, with Vitest and React Testing Library tests.
 - `backend/`: FastAPI 0.141.1, Pydantic 2.13, Uvicorn, only `GET /`. Installed but unused so
   far: `pydantic-settings`, SQLAlchemy 2.0.54, httpx, pytest. No linter yet.
 - No data in the repo. Sample rows exist only in `.context/` (untracked) until the seed step
@@ -35,7 +35,7 @@ Node and npm rewrote about 180 lines with no `package.json` change.
 
 ```
 Browser ── Next.js frontend (localhost:3000)
-   │          server components fetch facts ──────┐
+   │          client components fetch facts ──────┐
    │ client component fetches assessments         │
    └───────────── HTTP (CORS: known origin) ──────┤
                                                   ▼
@@ -60,8 +60,9 @@ under one domain at the infrastructure level, still without a proxy.
 
 - Routes `/` and `/relationships/[id]`, so the open relationship survives back, forward and
   reload.
-- Facts load in server components through `frontend/lib/api.ts`. Responses are narrowed with
-  type guards, not `as`.
+- Facts load in the browser: client components call FastAPI through
+  `frontend/features/relationships/api.ts`. Responses are narrowed with type guards, not `as`.
+  The client part stays small; the root layout and route files remain Server Components.
 - One client component handles assessments for both views. It requests the missing
   assessments, one relationship per request, at most two at a time (section 11.2); moves rows
   out of "Assessing…"; updates the detail in place and announces it; and shows "Try again"

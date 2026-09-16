@@ -27,9 +27,8 @@ ESLint 9. npm is the package manager (`package-lock.json`); Node 24 is pinned by
   because Next.js generates route types such as `LayoutProps`.
 - Build: `npm run build`, only as the production-build rule in `docs/DEVELOPMENT_GUIDE.md`
   allows.
-- Tests: Vitest and React Testing Library are the approved test stack. They are not installed
-  yet; say so instead of claiming tests ran. Do not add any other frontend test runner or
-  framework without approval.
+- Tests: `npm test`. Vitest and React Testing Library are installed and configured. Do not add
+  any other frontend test runner or framework without approval.
 
 ## Components, data and state
 
