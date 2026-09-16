@@ -30,7 +30,7 @@ pins Node or npm.
 
 **Decision: Node 24 LTS and Python 3.12**, fixed before any dependency work (step 1):
 
-- add `frontend/.nvmrc`, `engines`, an exact npm `packageManager`, and `backend/.python-version`;
+- add root `.nvmrc` and root `.python-version`, plus `engines` and an exact npm `packageManager`;
 - choose the npm version after Node 24 is installed;
 - regenerate the lockfile **once**, then use `npm ci`;
 - a lockfile diff is allowed only when `package.json` changes.
@@ -369,7 +369,7 @@ DeepSeek provider would be one new file and a setting, with no change to busines
 - Request structured JSON through the current `response_format` / JSON Schema mechanism of the
   Gemini API. Send the flat schema from §8, the system instruction and a low temperature.
 - Pydantic stays our validation boundary, whatever the SDK returns.
-- Step 8 pins an exact `google-genai` version and confirms the call shape against that version's
+- Step 9 pins an exact `google-genai` version and confirms the call shape against that version's
   docs. Before building the full provider, it runs one small structured-output smoke test by
   hand.
 - Wrap each call in `asyncio.timeout(30)`.
@@ -677,22 +677,22 @@ None of this is in the MVP.
 
 One reviewed commit per step. Each step ships its tests.
 
-1. Runtime and tooling: Node 24 / npm pin, Python 3.12, one lockfile regeneration, Ruff, Vitest
-   and React Testing Library.
-2. Seed CSV files and the validated loader.
-3. Persistence: tables, sessions, startup check.
-4. Read-only APIs (list and detail) and CORS.
-5. Frontend list and detail from facts only, with loading, empty, error and not-found states.
-6. AI contract, model input, handles, fingerprint, fake provider.
-7. Grounding checks. They come before storage, so nothing unchecked is ever persisted.
-8. Gemini provider: `google-genai` pinned, call shape confirmed, a manual structured-output
+1. Runtimes: Node 24 / npm pin, Python 3.12, one lockfile regeneration.
+2. Development and test tooling: Ruff, Vitest and React Testing Library.
+3. Seed CSV files and the validated loader.
+4. Persistence: tables, sessions, startup check.
+5. Read-only APIs (list and detail) and CORS.
+6. Frontend list and detail from facts only, with loading, empty, error and not-found states.
+7. AI contract, model input, handles, fingerprint, fake provider.
+8. Grounding checks. They come before storage, so nothing unchecked is ever persisted.
+9. Gemini provider: `google-genai` pinned, call shape confirmed, a manual structured-output
    smoke test, then the provider and its error mapping.
-9. Assessment lifecycle: service, outcome storage, route, logging.
-10. Frontend assessment states: request pool of 2, "Based on", unavailable causes, "Try again",
+10. Assessment lifecycle: service, outcome storage, route, logging.
+11. Frontend assessment states: request pool of 2, "Based on", unavailable causes, "Try again",
     announcements.
-11. Cross-cutting test pass against the UX acceptance checklist.
-12. `AI_EVALUATION.md` and the evaluation harness.
-13. Polish and README.
+12. Cross-cutting test pass against the UX acceptance checklist.
+13. `AI_EVALUATION.md` and the evaluation harness.
+14. Polish and README.
 
 ## 23. Open decisions
 
@@ -701,8 +701,8 @@ One reviewed commit per step. Each step ships its tests.
 These checks happen during implementation:
 
 1. **Step 1:** install Node 24 LTS, then pin the npm version that ships with it.
-2. **Step 8:** confirm the Gemini key serves `gemini-3.8-flash`, and note its rate limits. If
+2. **Step 9:** confirm the Gemini key serves `gemini-3.8-flash`, and note its rate limits. If
    the model is not served, set `GEMINI_MODEL` to an available one. If the limits allow more,
    revisit the frontend limit of 2.
-3. **Step 8:** pin the exact `google-genai` version and confirm the call shape with the smoke
+3. **Step 9:** pin the exact `google-genai` version and confirm the call shape with the smoke
    test.
