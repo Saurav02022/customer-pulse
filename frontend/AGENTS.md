@@ -24,7 +24,8 @@ ESLint 9. npm is the package manager (`package-lock.json`). Import alias: `@/*` 
 - Type-check: `npx next typegen && npx tsc --noEmit`. Plain `tsc` fails on a fresh checkout,
   because Next.js generates route types such as `LayoutProps`.
 - Build: `npm run build`
-- Tests: no test runner is set up yet. If a change needs one, propose it and ask first.
+- Tests: Vitest and React Testing Library are the approved frontend test stack. They may not be
+  installed yet. Do not add any other frontend test runner or framework without approval.
 
 ## Components
 

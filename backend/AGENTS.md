@@ -7,13 +7,17 @@ Rules for `backend/`. The root `AGENTS.md` still applies.
 Python FastAPI service, with Pydantic v2 and Uvicorn. The app lives in `app/main.py`.
 `pydantic-settings`, SQLAlchemy 2, httpx and pytest are installed but not used in code yet.
 `requirements.txt` holds exact pinned versions. The local virtualenv at `backend/.venv` uses
-Python 3.12 and is not committed. No Python version is pinned in the repository.
+Python 3.12 and is not committed. The development runtime is pinned to Python 3.12 by the root
+`.python-version`, which is the source of truth.
 
 ## Commands (run in `backend/` with `.venv` active)
 
 - Install: `pip install -r requirements.txt`
 - Tests: `pytest` (no tests exist yet)
-- No linter, formatter or type-checker is set up. Say so instead of claiming these checks passed.
+- Lint and format: Ruff is the approved tool, but it is not installed or configured yet. Until
+  the tooling stage adds it, Ruff checks cannot be required to pass; say they did not run. Once
+  it is installed, run `ruff check` and `ruff format --check` like any other check.
+- No type-checker is set up. Say so instead of claiming this check passed.
 - When you add a dependency, add it to `requirements.txt` with an exact version.
 
 ## API contracts
@@ -48,8 +52,10 @@ Python 3.12 and is not committed. No Python version is pinned in the repository.
 
 ## Persistence
 
-- No database is chosen yet. Ask before picking one or adding a migration tool.
-- Once one exists: one session per request through a dependency, always closed. Multi-step writes
+- The approved MVP persistence is SQLite with SQLAlchemy (`docs/TECHNICAL_DESIGN.md`). No
+  migration framework is used for the MVP. Changing the persistence design needs an approved
+  technical-design change first.
+- One session per request through a dependency, always closed. Multi-step writes
   go in one transaction that commits or rolls back as a whole.
 - Use bound parameters, never SQL built from strings. Load related data on purpose to avoid N+1
   queries, and add indexes for the queries you actually run.

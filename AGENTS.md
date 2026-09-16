@@ -23,7 +23,8 @@ for their own folder. If two rules conflict, stop and ask.
 5. Make the smallest complete change that fits existing patterns.
 6. Add or update meaningful tests for the behaviour you changed.
 7. Run the lint, type-check, test and build commands that exist for the folders you touched.
-   If a check does not exist, say so. Do not claim a check passed unless you ran it.
+   If a check does not exist, say so. Do not claim a check passed unless you ran it. For
+   builds, follow the production-build rule in `docs/DEVELOPMENT_GUIDE.md`.
 8. Review the final diff for correctness, needless complexity, security and privacy issues,
    regressions and unrelated changes.
 9. Report what changed, key decisions and trade-offs, and the checks you ran with their result.
@@ -86,6 +87,10 @@ for their own folder. If two rules conflict, stop and ask.
 - `.context/` is local-only. Keep it untracked.
 - Before product, UX, architecture, AI or backend work, read the relevant approved docs and
   context files.
+- Before implementation, refactoring or bug-fix work, read the relevant sections of
+  `docs/DEVELOPMENT_GUIDE.md` and the approved docs the change touches. The guide sets the
+  implementation workflow and the definition of done. `frontend/AGENTS.md` and
+  `backend/AGENTS.md` still apply.
 - Where an approved doc deliberately settles something the source material left open, the
   approved doc wins.
 - Never put hiring, interview, assignment, recruiter or source-document context in product
