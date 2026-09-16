@@ -21,7 +21,7 @@ from assessment_support import (
     waiting_reply,
 )
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, event, text
 
 from app.assessment.gemini import GeminiAssessmentProvider
 from app.assessment.provider import (
@@ -255,15 +255,152 @@ def test_unknown_relationship_is_404(run) -> None:
     assert provider.calls == 0
 
 
-def test_relationship_list_still_returns_null_assessments(run) -> None:
-    # Temporary until the frontend stage changes both sides of the list contract.
-    client, _ = run(action_needed_reply())
+# --- the relationship list: stored outcomes only, never a provider call ---
+
+LIST_URL = "/api/relationships"
+
+
+def list_assessments(client: TestClient) -> dict[str, Any]:
+    response = client.get(LIST_URL)
+    assert response.status_code == 200
+    return {row["id"]: row["assessment"] for row in response.json()["relationships"]}
+
+
+def test_list_shows_null_and_code_decided_causes_before_anything_is_stored(
+    run,
+) -> None:
+    client, provider = run(action_needed_reply())
+
+    rows = client.get(LIST_URL).json()["relationships"]
+
+    # Name order is unchanged: Das Studio, Rao Dental, Shah Clinic.
+    assert [row["id"] for row in rows] == [
+        EMPTY_NOTES_ID,
+        RELATIONSHIP_ID,
+        NO_INTERACTIONS_ID,
+    ]
+    # Facts load although no assessment is stored.
+    assert rows[1]["latest_interaction"] == {
+        "date": "2026-08-21",
+        "count": 1,
+        "types": ["note"],
+    }
+    assert {row["id"]: row["assessment"] for row in rows} == {
+        RELATIONSHIP_ID: None,
+        NO_INTERACTIONS_ID: {"status": "unavailable", "cause": "no_interactions"},
+        EMPTY_NOTES_ID: {"status": "unavailable", "cause": "insufficient_evidence"},
+    }
+    assert provider.calls == 0
+
+
+@pytest.mark.parametrize(
+    ("reply", "state", "reason"),
+    [
+        (
+            action_needed_reply(),
+            "action_needed",
+            "Pricing was sent and no response is recorded.",
+        ),
+        (waiting_reply(), "waiting", "Waiting for the busy season plan."),
+        (
+            no_action_needed_reply(),
+            "no_action_needed",
+            "The pricing question was answered.",
+        ),
+    ],
+)
+def test_list_shows_a_current_stored_business_assessment(
+    run, reply: dict[str, Any], state: str, reason: str
+) -> None:
+    client, provider = run(reply)
     assert client.get(URL).status_code == 200
 
-    rows = client.get("/api/relationships").json()["relationships"]
+    assessment = list_assessments(client)[RELATIONSHIP_ID]
 
-    assert rows
-    assert all(row["assessment"] is None for row in rows)
+    # State and reason only; the detail reads the rest from the assessment route.
+    assert assessment == {"status": "assessed", "state": state, "reason": reason}
+    assert provider.calls == 1
+
+
+def test_list_shows_a_stored_insufficient_evidence_answer_as_unavailable(
+    run,
+) -> None:
+    client, provider = run(insufficient_evidence_reply())
+    assert client.get(URL).status_code == 200
+
+    assessment = list_assessments(client)[RELATIONSHIP_ID]
+
+    assert assessment == {"status": "unavailable", "cause": "insufficient_evidence"}
+    assert provider.calls == 1
+
+
+def test_list_ignores_a_row_stored_for_another_model(run) -> None:
+    client, provider = run(action_needed_reply())
+    assert client.get(URL).status_code == 200
+
+    provider.model = "another-model"
+
+    assert list_assessments(client)[RELATIONSHIP_ID] is None
+    assert provider.calls == 1
+
+
+def test_list_ignores_a_row_stored_for_older_notes(run, engine: Engine) -> None:
+    client, provider = run(action_needed_reply())
+    assert client.get(URL).status_code == 200
+
+    with engine.begin() as connection:
+        connection.execute(
+            text("UPDATE interactions SET notes = 'Pricing accepted.' WHERE id = :id"),
+            {"id": "int_103"},
+        )
+
+    assert list_assessments(client)[RELATIONSHIP_ID] is None
+    assert provider.calls == 1
+
+
+def test_list_treats_a_corrupt_stored_row_as_missing_and_keeps_it(
+    run, engine: Engine
+) -> None:
+    client, provider = run(action_needed_reply())
+    assert client.get(URL).status_code == 200
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE assessments SET result_json = '{\"x\": 1}'"))
+
+    assert list_assessments(client)[RELATIONSHIP_ID] is None
+    with engine.connect() as connection:
+        stored = connection.execute(text("SELECT count(*) FROM assessments")).scalar()
+    # Only the assessment route replaces a corrupt row.
+    assert stored == 1
+    assert provider.calls == 1
+
+
+def test_list_never_calls_the_provider_even_when_nothing_is_stored(run) -> None:
+    client, provider = run(ProviderError("must not be reached"))
+
+    for _ in range(3):
+        assert list_assessments(client)[RELATIONSHIP_ID] is None
+
+    assert provider.calls == 0
+
+
+def test_list_reads_assessments_in_one_bulk_query(run) -> None:
+    client, _ = run(action_needed_reply())
+    assert client.get(URL).status_code == 200
+    statements: list[str] = []
+
+    def record(_conn, _cursor, statement, *_args) -> None:
+        statements.append(statement)
+
+    app_engine = client.app.state.engine
+    event.listen(app_engine, "before_cursor_execute", record)
+    try:
+        list_assessments(client)
+    finally:
+        event.remove(app_engine, "before_cursor_execute", record)
+
+    # Customers, contacts, interactions and assessments: one query each.
+    assert len(statements) == 4
+    assert sum("FROM assessments" in s for s in statements) == 1
 
 
 # --- app lifecycle ---

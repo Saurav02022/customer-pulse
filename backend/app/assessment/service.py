@@ -8,6 +8,7 @@ owns its one retry, and a new request is the only other way to try again.
 
 import logging
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
@@ -57,13 +58,62 @@ type AssessmentOutcome = BusinessResult | Unavailable
 
 
 @dataclass(frozen=True)
-class _Facts:
+class Facts:
+    """The records one relationship's assessment is built from."""
+
     status: CustomerStatus
     contacts: list[Contact]
     interactions: list[Interaction]
 
 
-def _load_facts(engine: Engine, customer_id: str) -> _Facts | None:
+def decided_in_code(interactions: Sequence[Interaction]) -> Unavailable | None:
+    """The unavailable causes that come from the data alone, with no AI call."""
+    if not interactions:
+        return Unavailable("no_interactions")
+    if not any(i.notes.strip() for i in interactions):
+        return Unavailable("insufficient_evidence")
+    return None
+
+
+def current_outcomes(
+    session: Session, provider: AssessmentProvider, facts: Mapping[str, Facts]
+) -> dict[str, AssessmentOutcome | None]:
+    """The outcome valid for each relationship's current inputs, read from storage only.
+
+    Never calls the provider; only its name and model go into the fingerprint. None
+    means nothing valid is stored. A stale row has another fingerprint and is never
+    matched. A stored row that no longer parses is also None here; the assessment
+    route replaces it when that relationship is assessed.
+    """
+    outcomes: dict[str, AssessmentOutcome | None] = {}
+    keys: dict[str, str] = {}
+    for customer_id, one in facts.items():
+        outcomes[customer_id] = decided_in_code(one.interactions)
+        if outcomes[customer_id] is None:
+            model_input, _ = build_model_input(
+                one.status, one.contacts, one.interactions
+            )
+            keys[customer_id] = fingerprint(model_input, provider.name, provider.model)
+    if not keys:
+        return outcomes
+    # One query for every relationship. The pair is matched below, so a key of one
+    # relationship can never select another relationship's row.
+    rows = session.execute(
+        select(Assessment.customer_id, Assessment.fingerprint, Assessment.result_json)
+        .where(Assessment.customer_id.in_(keys))
+        .where(Assessment.fingerprint.in_(keys.values()))
+    )
+    for customer_id, key, stored in rows:
+        if keys[customer_id] != key:
+            continue
+        try:
+            outcomes[customer_id] = _outcome(parse_reply(stored))
+        except InvalidOutput:
+            log.info("assessment customer_id=%s cache=corrupt list=true", customer_id)
+    return outcomes
+
+
+def _load_facts(engine: Engine, customer_id: str) -> Facts | None:
     with Session(engine) as session:
         customer = session.get(Customer, customer_id)
         if customer is None:
@@ -74,7 +124,7 @@ def _load_facts(engine: Engine, customer_id: str) -> _Facts | None:
         interactions = session.scalars(
             select(Interaction).where(Interaction.customer_id == customer_id)
         ).all()
-        return _Facts(customer.status, list(contacts), list(interactions))
+        return Facts(customer.status, list(contacts), list(interactions))
 
 
 def _read_stored(engine: Engine, customer_id: str, key: str) -> str | None:
@@ -145,12 +195,10 @@ async def get_or_create_assessment(
     if facts is None:
         raise RelationshipNotFound(customer_id)
     # Decided in code, with no AI call and nothing stored.
-    if not facts.interactions:
-        _log(**attempt, outcome="no_interactions")
-        return Unavailable("no_interactions")
-    if not any(i.notes.strip() for i in facts.interactions):
-        _log(**attempt, outcome="insufficient_evidence", decided="code")
-        return Unavailable("insufficient_evidence")
+    decided = decided_in_code(facts.interactions)
+    if decided is not None:
+        _log(**attempt, outcome=decided.cause, decided="code")
+        return decided
 
     model_input, evidence = build_model_input(
         facts.status, facts.contacts, facts.interactions

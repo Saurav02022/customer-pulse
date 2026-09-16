@@ -406,10 +406,12 @@ limit is work scheduling, not business logic, and it is not backend rate limitin
 the frontend to avoid shared mutable state in the backend (`backend/AGENTS.md`), and row-by-row
 updates stay simple.
 
-Known limit: several browser tabs each run their own pool, and so does a detail view opened
-while the list is still assessing. They can make extra calls for the same relationship; the
-first stored row wins. That is acceptable for a local, single-user MVP. A public or multi-user
-deployment needs backend rate and concurrency controls.
+The list and the detail share one workspace scheduler with this limit of 2, so a detail
+opened while the list is still assessing adds no second pool and no duplicate request.
+
+Known limit: several browser tabs each run their own pool. They can make extra calls for the
+same relationship; the first stored row wins. That is acceptable for a local, single-user MVP.
+A public or multi-user deployment needs backend rate and concurrency controls.
 
 ### 11.3 Staleness: deterministic fingerprint
 

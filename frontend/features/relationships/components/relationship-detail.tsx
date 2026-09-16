@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { formatDate } from "@/lib/dates";
 
 import { fetchRelationship } from "../api";
+import { detailAssessment, useAssessments } from "../assessments";
 import { CUSTOMER_STATUS_LABEL } from "../types";
 import { useApiRequest } from "../use-api-request";
+import { AssessmentSection } from "./assessment-section";
 import { ContactsSection } from "./contacts-section";
-import { InteractionHistory } from "./interaction-history";
+import type { ShowInHistory } from "./evidence";
+import { InteractionHistory, historyItemId } from "./interaction-history";
 
 const BASE_TITLE = "Customer Pulse";
 
@@ -30,10 +33,32 @@ function BackToListLink({ narrowOnly }: { narrowOnly: boolean }) {
   );
 }
 
+type Shown = {
+  relationshipId: string;
+  interactionId: string;
+  returnTo: HTMLElement | null;
+};
+
 export function RelationshipDetail({ id }: { id: string }) {
   const { state, retry } = useApiRequest(fetchRelationship, id);
+  const assessments = useAssessments();
+  const { requestFull } = assessments;
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const [shown, setShown] = useState<Shown | null>(null);
   const name = state.status === "ok" ? state.data.name : null;
+  const factsLoaded = state.status === "ok";
+
+  // Facts never wait for the assessment. Once they show, the shared pool is asked for
+  // the full assessment; it reuses what it already has or is already doing.
+  useEffect(() => {
+    if (factsLoaded) requestFull(id);
+  }, [factsLoaded, id, requestFull]);
+
+  // "Show in history" moves focus to the interaction it names.
+  useEffect(() => {
+    if (shown)
+      document.getElementById(historyItemId(shown.interactionId))?.focus();
+  }, [shown]);
 
   // Opening a relationship moves focus to its heading once the outcome is known
   // (UX spec, section 12). Each outcome renders its own heading on the same ref.
@@ -87,6 +112,16 @@ export function RelationshipDetail({ id }: { id: string }) {
   }
 
   const relationship = state.data;
+  const shownId =
+    shown?.relationshipId === relationship.id ? shown.interactionId : null;
+  const showInHistory: ShowInHistory = (interactionId, returnTo) =>
+    setShown({ relationshipId: relationship.id, interactionId, returnTo });
+  const backToAssessment = () => {
+    const target = shown?.returnTo;
+    setShown(null);
+    target?.focus();
+  };
+
   return (
     <article aria-labelledby="relationship-heading" className="max-w-2xl">
       <BackToListLink narrowOnly />
@@ -101,10 +136,18 @@ export function RelationshipDetail({ id }: { id: string }) {
       <p className="mt-1 text-neutral-600">
         {`${CUSTOMER_STATUS_LABEL[relationship.status]} · Record created ${formatDate(relationship.created_at)}`}
       </p>
+      <AssessmentSection
+        relationship={relationship}
+        assessment={detailAssessment(assessments.entries.get(relationship.id))}
+        onRetry={() => assessments.retry(relationship.id)}
+        onShowInHistory={showInHistory}
+      />
       <ContactsSection contacts={relationship.contacts} />
       <InteractionHistory
         interactions={relationship.interactions}
         contacts={relationship.contacts}
+        shownId={shownId}
+        onBackToAssessment={backToAssessment}
       />
     </article>
   );

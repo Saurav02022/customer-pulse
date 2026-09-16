@@ -1,15 +1,26 @@
-"""Read-only relationship routes: list and detail facts. No AI is involved here."""
+"""Read-only relationship routes: list and detail facts.
+
+No AI call is made here. The list adds each relationship's stored assessment outcome,
+but only when it matches the current inputs, and never waits for a provider.
+"""
 
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.assessment.routes import UnavailableOut
+from app.assessment.service import (
+    AssessmentOutcome,
+    Facts,
+    Unavailable,
+    current_outcomes,
+)
 from app.db import (
     Contact,
     Customer,
@@ -30,14 +41,22 @@ class LatestInteraction(BaseModel):
     types: list[InteractionType]
 
 
+class ListAssessed(BaseModel):
+    """The part of a stored business assessment the list row shows."""
+
+    status: Literal["assessed"] = "assessed"
+    state: Literal["action_needed", "waiting", "no_action_needed"]
+    reason: str
+
+
 class RelationshipSummary(BaseModel):
     id: str
     name: str
     status: CustomerStatus
     latest_interaction: LatestInteraction | None
-    # Filled in by the assessment stage. Null means nothing is stored, which is not
-    # "Assessment unavailable".
-    assessment: None = None
+    # None means nothing valid is stored for the current inputs. It is not a business
+    # state and not "Assessment unavailable"; the browser asks the assessment route.
+    assessment: ListAssessed | UnavailableOut | None
 
 
 class RelationshipList(BaseModel):
@@ -92,15 +111,41 @@ def latest_interaction_summary(
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
+def _list_assessment(
+    outcome: AssessmentOutcome | None,
+) -> ListAssessed | UnavailableOut | None:
+    if outcome is None:
+        return None
+    if isinstance(outcome, Unavailable):
+        return UnavailableOut(cause=outcome.cause)
+    return ListAssessed(state=outcome.state, reason=outcome.reason.text)
+
+
 @router.get("/api/relationships")
-def list_relationships(session: SessionDep) -> RelationshipList:
+def list_relationships(session: SessionDep, request: Request) -> RelationshipList:
     customers = session.scalars(
         select(Customer).order_by(func.lower(Customer.name), Customer.id)
     ).all()
-    # One query for every interaction instead of one per customer.
+    # One query each for contacts and interactions instead of one per customer.
+    contacts_by_customer: dict[str, list[Contact]] = defaultdict(list)
+    for contact in session.scalars(select(Contact)):
+        contacts_by_customer[contact.customer_id].append(contact)
     interactions_by_customer: dict[str, list[Interaction]] = defaultdict(list)
     for interaction in session.scalars(select(Interaction)):
         interactions_by_customer[interaction.customer_id].append(interaction)
+    # Reads storage only: the provider gives its name and model, and is never called.
+    outcomes = current_outcomes(
+        session,
+        request.app.state.provider,
+        {
+            customer.id: Facts(
+                customer.status,
+                contacts_by_customer[customer.id],
+                interactions_by_customer[customer.id],
+            )
+            for customer in customers
+        },
+    )
     return RelationshipList(
         relationships=[
             RelationshipSummary(
@@ -110,6 +155,7 @@ def list_relationships(session: SessionDep) -> RelationshipList:
                 latest_interaction=latest_interaction_summary(
                     interactions_by_customer[customer.id]
                 ),
+                assessment=_list_assessment(outcomes[customer.id]),
             )
             for customer in customers
         ]

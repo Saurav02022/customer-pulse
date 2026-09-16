@@ -1,17 +1,29 @@
 import { apiBaseUrl } from "@/lib/config";
 import { isDateOnly } from "@/lib/dates";
 import {
+  ASSESSMENT_STATES,
   CUSTOMER_STATUSES,
   INTERACTION_TYPES,
+  UNAVAILABLE_CAUSES,
+  type AssessmentResult,
+  type Claim,
   type Contact,
   type Interaction,
   type LatestInteraction,
+  type ListAssessed,
+  type OpenItem,
   type RelationshipDetail,
   type RelationshipSummary,
+  type UnavailableAssessment,
 } from "./types";
 
-// Fact requests are short local reads (technical design, section 12).
+// Fact requests are short local reads. An assessment may wait for one model call plus
+// one retry (technical design, section 12).
 const REQUEST_TIMEOUT_MS = 10_000;
+const ASSESSMENT_TIMEOUT_MS = 75_000;
+
+// Backend causes that mean trying again later may help (technical design, section 13).
+const TEMPORARY_CAUSES = ["provider_timeout", "provider_error"] as const;
 
 export type ApiResult<T> =
   | { status: "ok"; data: T }
@@ -37,6 +49,54 @@ export function fetchRelationship(
     `/api/relationships/${encodeURIComponent(id)}`,
     isRelationshipDetail,
   );
+}
+
+/**
+ * "temporary": the provider timed out or failed, or the browser could not get an answer.
+ * Trying again may help. "unknown": the reply could not be trusted, the server failed,
+ * or the body is outside the contract. Nothing more is said to the owner.
+ */
+export type AssessmentFailure = "temporary" | "unknown";
+
+export type AssessmentFetchResult =
+  | { status: "ok"; data: AssessmentResult }
+  | { status: "not_found" }
+  | { status: "failed"; failure: AssessmentFailure };
+
+export async function fetchAssessment(
+  id: string,
+  signal?: AbortSignal,
+): Promise<AssessmentFetchResult> {
+  const timeout = AbortSignal.timeout(ASSESSMENT_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl}/api/relationships/${encodeURIComponent(id)}/assessment`,
+      {
+        headers: { Accept: "application/json" },
+        signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+      },
+    );
+  } catch {
+    // Network failure, CORS or the browser timeout.
+    return { status: "failed", failure: "temporary" };
+  }
+  if (response.status === 404) return { status: "not_found" };
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    body = undefined;
+  }
+  if (response.status === 200 && isAssessmentResult(body)) {
+    return { status: "ok", data: body };
+  }
+  const temporary =
+    response.status === 503 &&
+    isObject(body) &&
+    isOneOf(TEMPORARY_CAUSES, body.cause);
+  return { status: "failed", failure: temporary ? "temporary" : "unknown" };
 }
 
 async function getJson<T>(
@@ -94,6 +154,94 @@ function isLatestInteraction(value: unknown): value is LatestInteraction {
   );
 }
 
+/** True when the object has exactly these keys, so an unexpected field is rejected. */
+function hasExactKeys(value: Record<string, unknown>, keys: string[]): boolean {
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every((key) => key in value);
+}
+
+function isText(value: unknown): value is string {
+  return isString(value) && value.trim() !== "";
+}
+
+function isIdList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every(isText);
+}
+
+function isClaim(value: unknown): value is Claim {
+  return (
+    isObject(value) &&
+    hasExactKeys(value, ["text", "evidence"]) &&
+    isText(value.text) &&
+    isIdList(value.evidence)
+  );
+}
+
+function isOpenItem(value: unknown): value is OpenItem {
+  return (
+    isObject(value) &&
+    hasExactKeys(value, ["text", "evidence", "contact_ids"]) &&
+    isText(value.text) &&
+    isIdList(value.evidence) &&
+    isIdList(value.contact_ids)
+  );
+}
+
+function isUnavailable(value: unknown): value is UnavailableAssessment {
+  return (
+    isObject(value) &&
+    hasExactKeys(value, ["status", "cause"]) &&
+    value.status === "unavailable" &&
+    isOneOf(UNAVAILABLE_CAUSES, value.cause)
+  );
+}
+
+const ASSESSED_KEYS = ["status", "state", "summary", "reason", "open_items"];
+
+function isAssessmentResult(value: unknown): value is AssessmentResult {
+  if (isUnavailable(value)) return true;
+  if (
+    !isObject(value) ||
+    value.status !== "assessed" ||
+    !isClaim(value.summary) ||
+    !isClaim(value.reason) ||
+    !Array.isArray(value.open_items) ||
+    !value.open_items.every(isOpenItem)
+  ) {
+    return false;
+  }
+  // Each state has exactly its own fields (technical design, section 7).
+  switch (value.state) {
+    case "action_needed":
+      return (
+        hasExactKeys(value, [...ASSESSED_KEYS, "next_action"]) &&
+        isClaim(value.next_action)
+      );
+    case "waiting":
+      return (
+        hasExactKeys(value, [...ASSESSED_KEYS, "waiting_for", "next_action"]) &&
+        isClaim(value.waiting_for) &&
+        (value.next_action === null || isClaim(value.next_action))
+      );
+    case "no_action_needed":
+      return (
+        hasExactKeys(value, ASSESSED_KEYS) && value.open_items.length === 0
+      );
+    default:
+      return false;
+  }
+}
+
+function isListAssessed(value: unknown): value is ListAssessed {
+  return (
+    isObject(value) &&
+    hasExactKeys(value, ["status", "state", "reason"]) &&
+    value.status === "assessed" &&
+    isOneOf(ASSESSMENT_STATES, value.state) &&
+    isText(value.reason)
+  );
+}
+
 function isRelationshipSummary(value: unknown): value is RelationshipSummary {
   return (
     isObject(value) &&
@@ -102,7 +250,9 @@ function isRelationshipSummary(value: unknown): value is RelationshipSummary {
     isOneOf(CUSTOMER_STATUSES, value.status) &&
     (value.latest_interaction === null ||
       isLatestInteraction(value.latest_interaction)) &&
-    value.assessment === null
+    (value.assessment === null ||
+      isListAssessed(value.assessment) ||
+      isUnavailable(value.assessment))
   );
 }
 
