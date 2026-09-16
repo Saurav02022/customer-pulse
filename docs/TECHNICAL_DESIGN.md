@@ -122,9 +122,12 @@ assessments   customer_id FK, fingerprint, result_json, provider, model, prompt_
   insufficient-evidence answer (section 11.1). Technical and validation failures are never
   stored. Rows use real ids. Each row is re-validated on read; a row that fails is treated as
   missing.
-- **Seeding:** `python -m app.seed` validates every CSV row with Pydantic, then replaces the
-  fact tables in one transaction. A bad row aborts the load with the file, row and field named,
-  and the old data stays.
+- **Seeding:** `python -m app.seed` validates every CSV row with Pydantic, then inserts the
+  missing fact rows in one transaction. A stored row with the same id and the same content is
+  left alone, so repeated runs change nothing. A stored row with the same id but different
+  content aborts the load, and facts are never updated or deleted by seeding, so later data
+  such as assessments can keep referencing them. A bad row aborts the load with the file, row
+  and field named, and the old data stays.
 - **Startup check:** the backend refuses to start if the tables are missing and says to run the
   seed command.
 - `.context/` stays local-only. Nothing at runtime, in tests or in the build reads it.
