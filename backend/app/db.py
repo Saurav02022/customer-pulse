@@ -1,12 +1,13 @@
 """SQLite persistence: tables, engine, request sessions and the schema check."""
 
 from collections.abc import Iterator
-from datetime import date
+from datetime import date, datetime
 from typing import Literal, get_args
 
 from fastapi import Request
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     Engine,
     ForeignKey,
     ForeignKeyConstraint,
@@ -81,6 +82,28 @@ class Interaction(Base):
     type: Mapped[str]
     occurred_at: Mapped[date]
     notes: Mapped[str] = mapped_column(Text, server_default="")
+
+
+class Assessment(Base):
+    """A validated assessment outcome, keyed by the fingerprint of its inputs.
+
+    Derived data only: a grounded business assessment or a valid insufficient-evidence
+    answer, with real ids. Failures are never stored. A row whose fingerprint no longer
+    matches the current inputs is stale and is simply never read.
+    """
+
+    __tablename__ = "assessments"
+
+    customer_id: Mapped[str] = mapped_column(
+        ForeignKey("customers.id"), primary_key=True
+    )
+    fingerprint: Mapped[str] = mapped_column(primary_key=True)
+    result_json: Mapped[str] = mapped_column(Text)
+    provider: Mapped[str]
+    model: Mapped[str]
+    prompt_version: Mapped[str]
+    # Metadata only. Nothing reads it to decide freshness.
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 def make_engine(database_url: str) -> Engine:

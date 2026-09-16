@@ -53,8 +53,10 @@ network error types in the Gemini provider.
 
 - SQLite with SQLAlchemy, no migration framework, as `docs/TECHNICAL_DESIGN.md` decides.
   Changing the persistence design needs an approved technical-design change first.
-- One session per request through a dependency, always closed. Multi-step writes go in one
-  transaction that commits or rolls back as a whole.
+- Database-only routes use one session per request through a dependency, always closed.
+  Work that waits on external or network I/O, such as assessment generation, opens its own
+  short sessions instead. Never hold a session or transaction open while awaiting that I/O.
+  Multi-step writes go in one transaction that commits or rolls back as a whole.
 - Bound parameters only, never SQL built from strings. Load related data on purpose to avoid
   N+1 queries, and add indexes for the queries you actually run.
 

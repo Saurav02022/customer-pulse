@@ -9,6 +9,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from assessment_support import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 
@@ -36,8 +37,17 @@ def seeded_engine(tmp_path: Path) -> Engine:
 
 
 @pytest.fixture
-def client(tmp_path: Path, seeded_engine: Engine) -> Iterator[TestClient]:
-    with TestClient(create_app(settings_for(tmp_path))) as client:
+def provider() -> FakeProvider:
+    # No replies scripted: any call to it fails the test.
+    return FakeProvider()
+
+
+@pytest.fixture
+def client(
+    tmp_path: Path, seeded_engine: Engine, provider: FakeProvider
+) -> Iterator[TestClient]:
+    app = create_app(settings_for(tmp_path), provider=provider)
+    with TestClient(app) as client:
         yield client
 
 
@@ -243,7 +253,7 @@ def test_startup_fails_clearly_when_the_database_is_not_seeded(tmp_path: Path) -
 def test_database_failure_is_a_500_not_an_empty_list(
     tmp_path: Path, seeded_engine: Engine
 ) -> None:
-    app = create_app(settings_for(tmp_path))
+    app = create_app(settings_for(tmp_path), provider=FakeProvider())
     with TestClient(app, raise_server_exceptions=False) as client:
         with seeded_engine.begin() as connection:
             connection.execute(text("DROP TABLE interactions"))
@@ -252,6 +262,16 @@ def test_database_failure_is_a_500_not_an_empty_list(
 
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal error"}
+
+
+def test_fact_routes_never_call_the_provider(
+    client: TestClient, provider: FakeProvider
+) -> None:
+    assert client.get("/api/relationships").status_code == 200
+    assert client.get("/api/relationships/cust_001").status_code == 200
+    assert client.get("/api/relationships/cust_404").status_code == 404
+
+    assert provider.calls == 0
 
 
 def test_api_tests_leave_the_developer_database_alone(client: TestClient) -> None:

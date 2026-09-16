@@ -55,8 +55,13 @@ class GeminiAssessmentProvider:
             raise ValueError("GEMINI_API_KEY is not set. Add it to backend/.env.")
         self.model = settings.gemini_model
         # vertexai=False: an environment variable must not move calls to another API.
-        # The caller closes the client with `await provider.client.aio.aclose()`.
+        # The app creates one provider at startup and calls aclose() at shutdown.
         self.client = genai.Client(api_key=key.get_secret_value(), vertexai=False)
+
+    async def aclose(self) -> None:
+        # The SDK keeps separate async and sync clients; each needs its own close.
+        await self.client.aio.aclose()
+        self.client.close()
 
     async def generate(
         self, system_instruction: str, input_json: str, response_schema: dict[str, Any]

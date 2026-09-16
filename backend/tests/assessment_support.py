@@ -5,8 +5,11 @@ import json
 from datetime import date
 from typing import Any
 
+from sqlalchemy import Engine, insert, select
+from sqlalchemy.orm import Session
+
 from app.assessment.model_input import EvidenceMap, build_model_input, handle
-from app.db import Contact, Interaction
+from app.db import Contact, Customer, Interaction
 
 OWNER = Contact(
     id="contact_101",
@@ -72,6 +75,70 @@ OTHER_INTERACTION = interaction(
 )
 E_FOREIGN = handle("e_", "int_901")
 C_FOREIGN = handle("c_", "contact_901")
+
+
+# --- the same records in a temporary database ---
+
+RELATIONSHIP_ID = "cust_101"
+NO_INTERACTIONS_ID = "cust_102"  # a contact, but no interactions
+EMPTY_NOTES_ID = "cust_103"  # interactions, all with blank notes
+FACT_MODELS = (Customer, Contact, Interaction)
+
+
+def _columns(record: Any) -> dict[str, Any]:
+    return {column.key: getattr(record, column.key) for column in record.__table__.c}
+
+
+def store_facts(engine: Engine) -> None:
+    """Write the synthetic relationships above into an empty, created database."""
+    blank_contact = Contact(
+        id="contact_103",
+        customer_id=EMPTY_NOTES_ID,
+        name="Kiran Das",
+        email="kiran@example.test",
+        role="Owner",
+    )
+    lonely_contact = Contact(
+        id="contact_104",
+        customer_id=NO_INTERACTIONS_ID,
+        name="Neha Shah",
+        email="neha@example.test",
+        role="Owner",
+    )
+    customers = [
+        {"id": RELATIONSHIP_ID, "name": "Rao Dental", "status": "prospect"},
+        {"id": NO_INTERACTIONS_ID, "name": "Shah Clinic", "status": "prospect"},
+        {"id": EMPTY_NOTES_ID, "name": "Das Studio", "status": "customer"},
+    ]
+    with Session(engine) as session, session.begin():
+        session.execute(
+            insert(Customer),
+            [row | {"created_at": date(2026, 5, 1)} for row in customers],
+        )
+        session.execute(
+            insert(Contact),
+            [_columns(c) for c in (OWNER, MANAGER, blank_contact, lonely_contact)],
+        )
+        blank_interactions = [
+            interaction("int_105", date(2026, 8, 1), "", blank_contact),
+            interaction("int_106", date(2026, 8, 2), "   ", blank_contact),
+        ]
+        session.execute(
+            insert(Interaction),
+            [_columns(i) for i in INTERACTIONS + blank_interactions],
+        )
+
+
+def fact_snapshot(engine: Engine) -> dict[str, list[dict[str, Any]]]:
+    """Every fact row, to prove assessment work never writes facts."""
+    with Session(engine) as session:
+        return {
+            model.__tablename__: [
+                _columns(row)
+                for row in session.scalars(select(model).order_by(model.id))
+            ]
+            for model in FACT_MODELS
+        }
 
 
 def sample_input() -> tuple[dict[str, Any], EvidenceMap]:
