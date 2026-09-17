@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Customer Pulse Frontend
 
-## Getting Started
+Next.js web app for Customer Pulse. It shows the relationship list and detail views, and requests
+grounded assessments from the backend. The whole-project overview is in the
+[root README](../README.md).
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router)
+- React 19
+- TypeScript (strict)
+- Vitest and React Testing Library
+
+## Requirements
+
+- Node **v24.18.0** (`.nvmrc`)
+- npm **11.16.0** (`packageManager`)
+
+## Setup
+
+```bash
+cd frontend
+nvm use
+npm ci
+cp .env.example .env.local   # optional
+```
+
+## Environment
+
+| Variable | Default |
+| --- | --- |
+| `NEXT_PUBLIC_API_BASE_URL` | `http://127.0.0.1:8000` |
+
+It points the browser at the backend. It is inlined into the browser bundle, so it must never hold
+a secret.
+
+## Run locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>. Use `localhost`, not `127.0.0.1`, unless you add that origin to the
+backend's `CORS_ORIGINS`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Production commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm run start
+```
 
-## Learn More
+## Routes
 
-To learn more about Next.js, take a look at the following resources:
+| Route | View |
+| --- | --- |
+| `/` | The relationship list, grouped by state. |
+| `/relationships/[id]` | One relationship's contacts, interaction history and assessment. |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Frontend structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The relationship UI — API client, assessment request scheduler, list and detail components — lives
+under `features/relationships/`.
 
-## Deploy on Vercel
+## Assessment UI behavior
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- CRM facts load independently and are shown whether or not the assessment works.
+- Assessment requests go through the shared client scheduler, with at most two active at a time.
+- Rows can regroup as assessment results arrive.
+- A temporary failure can be retried from the detail view.
+- An unavailable result is not a business state.
+- There is no polling.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tests
+
+```bash
+npm test
+npm run lint
+npx next typegen
+npx tsc --noEmit
+```
+
+Run `npx next typegen` before `tsc` so the generated route types exist. The frontend tests do not
+require real Gemini access.
+
+## Repository guidance
+
+- [`AGENTS.md`](AGENTS.md) — rules for working in `frontend/`.
+- [`CLAUDE.md`](CLAUDE.md) — same rules, loaded by Claude Code.
+- [`../README.md`](../README.md) — whole-project overview.
