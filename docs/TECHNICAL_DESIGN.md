@@ -19,10 +19,13 @@ How the MVP is built. Behaviour comes from `docs/PRD.md` (v0.3, frozen) and `doc
 ## 2. Repository and runtimes
 
 - `frontend/`: Next.js 16.3.5, React 19.2.8, TypeScript strict, Tailwind 4, ESLint 9, npm.
-  Relationship list and detail from facts only, with Vitest and React Testing Library tests.
+  Relationship list and detail with AI assessments, with Vitest and React Testing Library
+  tests.
 - `backend/`: FastAPI 0.141.1, Pydantic 2.13, Uvicorn, `pydantic-settings`, SQLAlchemy 2.0.54
-  on SQLite. Routes: `GET /`, `GET /api/relationships`, `GET /api/relationships/{id}`. pytest
-  tests and Ruff lint and format checks. httpx is used only for Gemini network error types.
+  on SQLite, and the Gemini provider through `google-genai`. Routes: `GET /`,
+  `GET /api/relationships`, `GET /api/relationships/{id}`,
+  `GET /api/relationships/{id}/assessment`. pytest tests and Ruff lint and format checks. httpx
+  is used only for Gemini network error types. The AI evaluation harness is in `backend/eval/`.
 - Seed fact data is committed as CSV under `backend/seed/` and loaded by `python -m app.seed`.
 
 Runtimes are pinned: Node 24 LTS through the root `.nvmrc`, `engines` and an exact

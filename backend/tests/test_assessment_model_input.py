@@ -177,7 +177,8 @@ def test_prompt_or_schema_change_changes_the_fingerprint(
 ) -> None:
     base = sample_fingerprint()
     changed = {
-        "PROMPT_VERSION": "assessment-v2",
+        # A value that differs from whatever the current version is.
+        "PROMPT_VERSION": model_input.PROMPT_VERSION + "-changed",
         "SYSTEM_INSTRUCTION": model_input.SYSTEM_INSTRUCTION + " ",
         "RESPONSE_SCHEMA": {"type": "object"},
     }[name]

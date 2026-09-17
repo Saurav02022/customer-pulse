@@ -8,7 +8,26 @@ TEXT = " ".join(SYSTEM_INSTRUCTION.split())
 
 
 def test_prompt_version_is_explicit() -> None:
-    assert PROMPT_VERSION == "assessment-v1"
+    assert PROMPT_VERSION == "assessment-v3"
+
+
+def test_action_needed_covers_unresolved_tasks_and_conflicts() -> None:
+    # An already-recorded unresolved task is Action needed even when the final answer
+    # is unknown; conflicting notes call for clarification, not a guess.
+    assert "an unresolved request, or two notes that conflict" in TEXT
+    assert "ask the contact to clarify" in TEXT
+    assert "never decide which one is right" in TEXT
+
+
+def test_insufficient_evidence_is_scoped_to_no_assessment_or_step() -> None:
+    assert (
+        "use this only when the history cannot support a responsible assessment or "
+        "any concrete next step" in TEXT
+    )
+    assert (
+        "Not knowing the customer's final answer or preference is not a reason to "
+        "decline" in TEXT
+    )
 
 
 def test_names_exactly_the_three_states_and_the_decline() -> None:
@@ -37,6 +56,18 @@ def test_same_date_groups_have_no_order() -> None:
     assert "Order comes only from the date values." in TEXT
     assert '"unordered"' in TEXT
     assert "Input position and handles never show order." in TEXT
+
+
+def test_same_date_facts_are_not_joined_by_a_sequence_word() -> None:
+    # Guards against inventing chronology like "satisfied after receiving options"
+    # between two interactions that share a date (CF6).
+    assert "When two or more interactions share a date, their order is unknown" in TEXT
+    assert 'Write "X happened, and Y happened", not "Y happened after X"' in TEXT
+
+
+def test_source_supported_timing_remains_allowed() -> None:
+    # Named future events and explicit deadlines are still allowed timing language.
+    assert "Timing words stay allowed when a note supports them directly" in TEXT
 
 
 def test_no_current_date_no_recency_no_sender() -> None:

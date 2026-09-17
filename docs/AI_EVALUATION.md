@@ -6,8 +6,8 @@ How we decide whether the AI assessment is correct, grounded, reliable and usefu
 prompt, model or provider change is accepted. Behaviour comes from `docs/PRD.md` (v0.3,
 frozen), `docs/UX_SPEC.md` (v0.2) and `docs/TECHNICAL_DESIGN.md` (v0.2); this document changes
 none of them. "TD → Assessment lifecycle" points to that section of the technical design by its
-heading. Nothing here calls a real model; the harness that does is built at implementation
-step 13.
+heading. This document is the plan. The harness that runs it lives in `backend/eval/`, and the
+recorded results are in `docs/AI_EVALUATION_RESULTS.md`.
 
 ## 1. What is evaluated
 
@@ -537,8 +537,8 @@ and a judge model can share the blind spots of the model it checks.
 
 ## 16. Harness boundary
 
-The harness is built at implementation step 13, not now. It is a small backend script and
-module, separate from the frontend and from the running app. It must be able to:
+The harness is a small backend module in `backend/eval/`, separate from the frontend and from
+the running app. It must be able to:
 
 1. **Load cases:** seeded cases by customer id from `backend/seed/`, plus synthetic JSON
    fixtures and expectation files in the harness folder (stdlib `json`, no new dependency).
@@ -558,8 +558,17 @@ Rules: real calls happen only when the harness is run by hand with a key, never 
 and never in CI; the harness's own tests use `FakeProvider`; no database for results, no
 dashboard, no web page; no key or secret is written to any output.
 
-Two things are settled at step 13: whether token counts reach the harness through the current
-provider interface, and the exact folder name.
+As built:
+
+- The folder is `backend/eval/`. Synthetic fixtures are Python data in `cases.py`, not JSON
+  files; they still live only in the harness and are never loaded by the seed command.
+- A run calls the production pipeline directly (model input, provider, `parse_reply`,
+  `check_grounding`) instead of `get_or_create_assessment` with a temporary database. The
+  effect is the same: no stored assessment can answer a case, and nothing is written.
+- Token counts do not reach the harness; the provider interface returns reply text only. Cost is
+  therefore not measured.
+- Item 5 is recorded in the local result artifacts. Item 6 (comparing two run summaries) is not
+  built; runs were compared by hand.
 
 ## 17. When evaluations run
 
